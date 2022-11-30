@@ -1,0 +1,12 @@
+[submodule "thirdparty/mimalloc"]
+	path = thirdparty/mimalloc
+	url = https://github.com/microsoft/mimalloc.git
+[submodule "thirdparty/winim"]
+	path = thirdparty/winim
+	url = https://github.com/khchen/winim.git
+[submodule "thirdparty/cr"]
+	path = thirdparty/cr
+	url = https://github.com/Tail-Wag-Games/cr.git
+[submodule "thirdparty/sokol-nim"]
+	path = thirdparty/sokol-nim
+	url = https://github.com/floooh/sokol-nim

@@ -1,0 +1,5 @@
+**/*.o
+**/*.exe
+**/*.ilk
+**/*.pdb
+frag.rdbg
