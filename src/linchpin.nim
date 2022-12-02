@@ -12,12 +12,16 @@ var
     colors: [ ColorAttachmentAction( action: actionClear, value: (1, 0, 0, 0)) ]
   )
 
+proc testAndDelJob(j: Job): bool {.cdecl.} =
+  assert(ctx.jobCtx != nil)
+  result = job.testAndDel(ctx.jobCtx, j)
+
 proc jobThreadIndex(): int32 {.cdecl.} =
   assert(ctx.jobCtx != nil)
   result = jobThreadIndex(ctx.jobCtx)
 
 proc init*(cfg: var Config) =
-  ctx.jobCtx = job.createJobContext(JobContextDesc(
+  ctx.jobCtx = job.createContext(JobContextDesc(
     numThreads: 4,
     maxFibers: 64,
     fiberStackSize: 1024 * 1024
@@ -42,8 +46,9 @@ proc shutdown*() =
   plugin.shutdown()
   gfx.shutdown()
   asset.shutdown()
-  job.destroyJobContext(ctx.jobCtx)
+  job.destroyContext(ctx.jobCtx)
 
 coreApi = CoreApi(
+  testAndDelJob: testAndDelJob,
   jobThreadIndex: jobThreadIndex
 )

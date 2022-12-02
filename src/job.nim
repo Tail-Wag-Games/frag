@@ -227,7 +227,7 @@ proc jobThreadFn(userData: tuple[ctx: ptr JobContext; idx: int32]) {.thread, gcs
 
   # jobDestroyTData(tData)
 
-proc jobDispatch*(ctx: ptr JobContext; count: int32;
+proc dispatch*(ctx: ptr JobContext; count: int32;
                   callback: JobCallback; userData: pointer; priority: JobPriority;
                   tags: uint32): Job =
   let
@@ -376,14 +376,14 @@ proc jobWaitAndDel(ctx: ptr JobContext; job: Job) =
   withLock(ctx.jobLock):
     jobProcessPending(ctx)
 
-proc jobTestAndDel*(ctx: ptr JobContext, job: Job): bool =
+proc testAndDel*(ctx: ptr JobContext, job: Job): bool =
   if load(job[]) == 0:
     withLock(ctx.counterLock):
       poolDel(ctx.counterPool, cast[pointer](job))
     return true
   return false
 
-proc createJobContext*(desc: JobContextDesc): ptr JobContext =
+proc createContext*(desc: JobContextDesc): ptr JobContext =
   result = createShared(JobContext)
   result.numThreads = if desc.numThreads > 0: desc.numThreads else: int32(countProcessors() - 1)
   result.stackSize = DefaultFiberStackSize
@@ -404,7 +404,7 @@ proc createJobContext*(desc: JobContextDesc): ptr JobContext =
     for i in 0 ..< result.numThreads:
       createThread(result.threads[i], jobThreadFn, (result, i))
 
-proc destroyJobContext*(ctx: ptr JobContext) =
+proc destroyContext*(ctx: ptr JobContext) =
   ctx.quit = true
 
   post(ctx.sem, ctx.numThreads + 1'i32)
@@ -435,12 +435,12 @@ when isMainModule:
       maxFibers: 64,
       fiberStackSize: 32000,
     )
-    jobCtx = createJobContext(jobContextDesc)
+    jobCtx = createContext(jobContextDesc)
 
   var exJob: ExampleJob
-  discard jobDispatch(jobCtx, 1, exampleJobCb, cast[pointer](addr exJob), jpHigh, 0)
+  discard dispatch(jobCtx, 1, exampleJobCb, cast[pointer](addr exJob), jpHigh, 0)
 
   for i in 0..<10:
     sleep(100)
   
-  destroyJobContext(jobCtx)
+  destroyContext(jobCtx)

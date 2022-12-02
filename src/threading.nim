@@ -2,17 +2,17 @@ import cpuinfo, std/[atomics, locks]
 
 when defined(windows):
   import winim/lean
-else:
-  import posix
+# else:
+#   import posix
 
 type
-  MachPort = distinct uint32
+#   MachPort = distinct uint32
 
-  SpinWait* = object
-    count: int
+#   SpinWait* = object
+#     count: int
 
-  # SpinLock* = object
-  #   state: AtomicFlag
+#   # SpinLock* = object
+#   #   state: AtomicFlag
 
   SpinLock* = Atomic[int]
 
@@ -28,14 +28,14 @@ const
   # LockMaxTime* = 300
   # MaxSpinCount = 10
 
-let
-  allowBusyWaiting = countProcessors() > 1
+# let
+#   allowBusyWaiting = countProcessors() > 1
 
-when defined(macosx):
-  proc pthreadMachThreadNp(t: Pthread): MachPort {.cdecl, importc:"pthread_mach_thread_np", header:"pthread.h".}
-elif defined(windows) and defined(vcc):
-  proc switchToThread(): bool {.cdecl, importc:"SwitchToThread", header:"Processthreadsapi.h".}
-  proc rdtsc(): int64 {.cdecl, importc: "__rdtsc", header: "<intrin.h>".}
+# when defined(macosx):
+#   proc pthreadMachThreadNp(t: Pthread): MachPort {.cdecl, importc:"pthread_mach_thread_np", header:"pthread.h".}
+# elif defined(windows) and defined(vcc):
+#   proc switchToThread(): bool {.cdecl, importc:"SwitchToThread", header:"Processthreadsapi.h".}
+#   proc rdtsc(): int64 {.cdecl, importc: "__rdtsc", header: "<intrin.h>".}
 
 proc threadTid*(): uint32 =
   when defined(windows):
@@ -55,11 +55,11 @@ proc lock*(lock: var SpinLock) =
   while not tryLock(lock):
     inc(counter)
     if (counter and LockPrespin) == 0:
-      discard switchToThread()
+      discard SwitchToThread()
     else:
-      let prev = rdtsc()
+      let prev = ReadTimeStampCounter()
       cpuRelax()
-      while (rdtsc() - prev) < LockMaxTime:
+      while (ReadTimeStampCounter() - prev) < LockMaxTime:
         cpuRelax()
 
 template withLock*(t, x: untyped) =
@@ -67,30 +67,30 @@ template withLock*(t, x: untyped) =
   x
   unlock(t)
 
-# proc isNextSpinYield*(self: SpinWait): bool {.inline.} =
-#   return self.count >= MaxSpinCount or not allowBusyWaiting
+# # proc isNextSpinYield*(self: SpinWait): bool {.inline.} =
+# #   return self.count >= MaxSpinCount or not allowBusyWaiting
 
-# proc spinOnce*(self: var SpinWait) {.inline.} =
-#   if self.isNextSpinYield:
-#     cpuRelax()
-#   inc(self.count)
+# # proc spinOnce*(self: var SpinWait) {.inline.} =
+# #   if self.isNextSpinYield:
+# #     cpuRelax()
+# #   inc(self.count)
 
-# proc enter*(self: var SpinLock): bool {.inline.} =
-#   var wait: SpinWait
-#   while self.state.testAndSet(moAcquire):
-#     wait.spinOnce()
-#   return true
+# # proc enter*(self: var SpinLock): bool {.inline.} =
+# #   var wait: SpinWait
+# #   while self.state.testAndSet(moAcquire):
+# #     wait.spinOnce()
+# #   return true
 
-# proc exit*(self: var SpinLock) {.inline.} =
-#   self.state.clear(moRelease)
+# # proc exit*(self: var SpinLock) {.inline.} =
+# #   self.state.clear(moRelease)
 
-# template withLock*(self: var SpinLock; body: untyped): untyped =
-#   let isLockTaken = self.enter()
-#   try:
-#     body
-#   finally:
-#     if isLockTaken:
-#       self.exit()
+# # template withLock*(self: var SpinLock; body: untyped): untyped =
+# #   let isLockTaken = self.enter()
+# #   try:
+# #     body
+# #   finally:
+# #     if isLockTaken:
+# #       self.exit()
 
 proc init*(s: var Semaphore) =
   initLock(s.lock)

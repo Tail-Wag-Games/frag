@@ -2,4 +2,5 @@
 **/*.exe
 **/*.ilk
 **/*.pdb
+*.pdb
 frag.rdbg

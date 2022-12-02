@@ -2,9 +2,20 @@ import std/[hashes, locks, tables],
        api, fuse, handle, io, logging
 
 type
+  AssetJobState = distinct uint32
+
   AsyncAssetLoadRequest = object
     pathHash: Hash
     asset: AssetHandle
+
+  AsyncAssetJob = object
+    loadData: AssetLoadData
+    mem: ptr MemBlock
+    assetMgr: ptr AssetManager
+    loadParams: AssetLoadParams
+    job: Job
+    state: AssetJobState
+    assetHandle: AssetHandle
 
   AssetData = object
     handle: Handle
@@ -44,7 +55,13 @@ type
     resources: Table[cstring, int]
     loadedResources: seq[AssetResource]
     asyncReqs: seq[AsyncAssetLoadRequest]
+    asyncJobList: seq[AsyncAssetJob]
     assetsLock: Lock
+
+const
+  ajsSpawn = AssetJobState(0)
+  ajsLoadFailed = AssetJobState(1)
+  ajsSuccess = AssetJobState(2)
 
 var ctx: AssetContext
 
@@ -187,7 +204,10 @@ proc init*() =
   ctx.assetHandles = createHandlePool(AssetPoolSize)
 
 proc update*() =
-  discard
+  for assetJob in ctx.asyncJobList.mitems:
+    if coreApi.testAndDelJob(assetJob.job):
+      let a = addr(ctx.assets[handleIndex(assetJob.assetHandle.id)])
+
 
 proc shutdown*() =
   destroyHandlePool(ctx.assetHandles)

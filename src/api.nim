@@ -21,6 +21,7 @@ type
   ApiType* = distinct int32
 
   CoreApi* = object
+    testAndDelJob*: proc(job: Job): bool {.cdecl.}
     jobThreadIndex*: proc(): int32 {.cdecl.}
 
   PluginFailure* = distinct int32
@@ -73,6 +74,7 @@ type
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
 
   VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock; userData: pointer) {.cdecl.}
+  VfsAsyncWriteCallback* = proc(path: cstring; bytesWritten: int64; mem: ptr MemBlock; userData: pointer) {.cdecl.}
 
   VfsFlag* = distinct uint32
 

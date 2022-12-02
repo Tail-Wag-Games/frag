@@ -1,13 +1,31 @@
 import std/os, std/private/globs,
-       api, fuse
+       api, fuse, io
 
 type
   MountPoint = object
     path: string
     alias: string
+  
+  AsyncCommand = distinct uint32
+
+  AsyncCallback {.union.} = object
+    readFn: VfsAsyncReadCallback
+    writeFn: VfsAsyncWriteCallback
+
+  AsyncRequest = object
+    cmd: AsyncCommand
+    flags: VfsFlag
+    path: cstring
+    writeMem: ptr MemBlock
+    callback: AsyncCallback
+    userData: pointer
 
   VfsState = object
     mounts: seq[MountPoint]
+
+const
+  acRead = AsyncCommand(0)
+  acWrite = AsyncCommand(1)
 
 var ctx: VfsState
 
@@ -33,6 +51,18 @@ proc mount*(path, alias: cstring; watch: bool): bool {.cdecl.} =
     else:
       result = false
 
+proc readAsync(path: cstring; flags: VfsFlag; readFn: VfsAsyncReadCallback; userData: pointer) {.cdecl.} =
+  var req = AsyncRequest(
+    cmd: acRead,
+    flags: flags,
+    callback: AsyncCallback(
+      readFn: readFn
+    ),
+    userData: userData,
+    path: path,
+  )
+
 vfsApi = VfsApi(
-  mount: mount
+  mount: mount,
+  readAsync: readAsync
 )
