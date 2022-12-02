@@ -1,6 +1,7 @@
 **/*.o
 **/*.exe
 **/*.ilk
+**/*.lib
 **/*.pdb
 *.pdb
 frag.rdbg
