@@ -44,6 +44,11 @@ const
   acRead = AsyncCommand(0)
   acWrite = AsyncCommand(1)
 
+  rcReadFailed = ResponseCode(0)
+  rcReadOk = ResponseCode(1)
+  rcWriteFailed = ResponseCode(2)
+  rcWriteOk = ResponseCode(3)
+
 var ctx: VfsState
 
 proc mount*(path, alias: cstring; watch: bool): bool {.cdecl.} =
@@ -88,13 +93,24 @@ proc init*() =
 
   init(ctx.workerSem)
 
-vfsApi = VfsApi(
-  mount: mount,
-  readAsync: readAsync
-)
+proc update*() =
+  var res: AsyncResponse
+  while consume(ctx.responseQueue, addr(res)):
+    case res.code:
+    of rcReadOk, rcReadFailed:
+      res.callback.readFn(res.path, res.mem.read, res.userData)
+    of rcWriteOk, rcWriteFailed:
+      res.callback.writeFn(res.path, res.writeBytes, res.mem.write, res.userData)
+    else:
+      discard
 
 proc shutdown*() =
   if ctx.requestQueue != nil:
     destroy(ctx.requestQueue)
   if ctx.responseQueue != nil:
     destroy(ctx.responseQueue)
+
+vfsApi = VfsApi(
+  mount: mount,
+  readAsync: readAsync
+)

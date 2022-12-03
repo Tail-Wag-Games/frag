@@ -36,6 +36,8 @@ proc init*(cfg: var Config) =
   plugin.init()
 
 proc frame*() =
+  vfs.update()
+  
   plugin.update()
   
   var g = passAction.colors[0].value.g + 0.01

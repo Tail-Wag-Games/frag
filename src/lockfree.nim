@@ -29,7 +29,7 @@ type
 proc destroy*(bin: ptr SpscBin) =
   assert not bin.isNil
 
-  freeShared(bin.addr)
+  freeShared(bin)
 
 proc destroy*(queue: ptr SpscQueue) =
   if cast[ptr SpscQueue](queue.addr) != nil:
@@ -42,7 +42,7 @@ proc destroy*(queue: ptr SpscQueue) =
     
     queue.iter = 0
     queue.capacity = queue.iter
-    freeShared(queue.addr)
+    freeShared(queue)
 
 proc createBin(itemSize, capacity: int): ptr SpscBin =
   assert capacity mod 16 == 0
