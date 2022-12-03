@@ -21,6 +21,8 @@ proc jobThreadIndex(): int32 {.cdecl.} =
   result = jobThreadIndex(ctx.jobCtx)
 
 proc init*(cfg: var Config) =
+  vfs.init()
+
   ctx.jobCtx = job.createContext(JobContextDesc(
     numThreads: 4,
     maxFibers: 64,
@@ -47,6 +49,7 @@ proc shutdown*() =
   gfx.shutdown()
   asset.shutdown()
   job.destroyContext(ctx.jobCtx)
+  vfs.shutdown()
 
 coreApi = CoreApi(
   testAndDelJob: testAndDelJob,
