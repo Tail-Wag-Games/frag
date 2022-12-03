@@ -198,6 +198,9 @@ const
 converter toUint32*(lf: AssetLoadFlag): uint32 = uint32(lf)
 converter toLoadFlag*(lf: uint32): AssetLoadFlag = AssetLoadFlag(lf)
 
+converter toUint32*(lf: VfsFlag): uint32 = uint32(lf)
+converter toVfsFlag*(lf: uint32): VfsFlag = VfsFlag(lf)
+
 when defined host:
   when defined debug:
     {.link: "../thirdparty/crd.lib".}

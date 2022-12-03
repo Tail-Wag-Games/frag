@@ -21,8 +21,8 @@ type
     buffSize: int
 
     first: ptr SpscNode
-    last: Atomic[uint64]
-    divider: Atomic[uint64]
+    last: Atomic[uint]
+    divider: Atomic[uint]
 
     growBins: ptr SpscBin
 
@@ -39,7 +39,7 @@ proc destroy*(queue: ptr SpscQueue) =
         let next = bin.next
         destroy(bin)
         bin = next
-    
+
     queue.iter = 0
     queue.capacity = queue.iter
     freeShared(queue)
@@ -56,7 +56,7 @@ proc createBin(itemSize, capacity: int): ptr SpscBin =
       # TODO: Handle OOM
       result = nil
       break outer
-    
+
     result = cast[ptr SpscBin](buff)
     buff += sizeof(SpscBin)
     result.ptrs = cast[ptr ptr SpscNode](buff)
@@ -65,7 +65,7 @@ proc createBin(itemSize, capacity: int): ptr SpscBin =
     result.next = nil
 
     result.iter = capacity
-    
+
     for i in 0 ..< capacity:
       result.ptrs[capacity - i - 1] =
         cast[ptr SpscNode](result.buff + (sizeof(SpscNode) * itemSize) * i)
@@ -76,11 +76,12 @@ proc create*(itemSize, capacity: int): ptr SpscQueue =
   let cap = alignMask(capacity, 15).int
 
   block outer:
-    var 
+    var
       buff = cast[ptr uint8](
-        allocShared(sizeof(SpscQueue) + (itemSize + sizeof(pointer) + sizeof(SpscNode)) * capacity)
+        allocShared(sizeof(SpscQueue) + (itemSize + sizeof(pointer) + sizeof(
+            SpscNode)) * capacity)
       )
-    
+
     if buff.isNil:
       # TODO: Handle OOM
       result = nil
@@ -100,59 +101,62 @@ proc create*(itemSize, capacity: int): ptr SpscQueue =
     for i in 0 ..< cap:
       result.ptrs[cap - i - 1] =
         cast[ptr SpscNode](result.buff + (sizeof(SpscNode) + itemSize) * i)
-    
+
     dec(result.iter)
     let node = result.ptrs[result.iter]
     node.next = nil
     result.first = node
-    result.divider.store(result.last.load)
+    store(result.last, cast[uint](node))
+    store(result.divider, load(result.last))
     result.growBins = nil
 
 proc produce*(queue: ptr SpscQueue; data: pointer): bool =
   var
     node: ptr SpscNode = nil
     nodeBin: ptr SpscBin = nil
-  
+
   if queue.iter > 0:
     dec(queue.iter)
     node = queue.ptrs[queue.iter]
   else:
     var bin = queue.growBins
-    while bin != nil and node.isNil:
+    while bin != nil and isNil(node):
       if bin.iter > 0:
         dec(bin.iter)
         node = bin.ptrs[bin.iter]
         nodeBin = bin
-      
+
       bin = bin.next
-  
+
   if node != nil:
     copyMem(node + 1, data, queue.stride)
     node.next = nil
 
-    let last = cast[ptr SpscNode](exchange(queue.last, cast[uint64](node)))
+    let last = cast[ptr SpscNode](exchange(queue.last, cast[uint](node)))
     last.next = node
 
-    while cast[uint64](queue.first) != load(queue.divider, moAcquire):
+    while cast[uint](queue.first) != load(queue.divider, moAcquire):
       let first = queue.first
       queue.first = first.next
 
       let firstPtr = cast[uint](first)
-      if firstPtr >= cast[uint](queue.buff) and firstPtr < cast[uint](queue.buff + queue.buffSize):
+      if firstPtr >= cast[uint](queue.buff) and firstPtr < cast[uint](
+          queue.buff + queue.buffSize):
         assert queue.iter != queue.capacity
         queue.ptrs[queue.iter] = first
         inc(queue.iter)
       else:
         var bin = queue.growBins
         while bin != nil:
-          if firstPtr >= cast[uint](bin.buff) and firstPtr < cast[uint](bin.buff + queue.buffSize):
+          if firstPtr >= cast[uint](bin.buff) and firstPtr < cast[uint](
+              bin.buff + queue.buffSize):
             assert bin.iter != queue.capacity
             bin.ptrs[bin.iter] = first
             inc(bin.iter)
             break
           bin = bin.next
         assert bin != nil
-    
+
     result = true
   else:
     result = false
@@ -163,7 +167,7 @@ proc consume*(queue: ptr SpscQueue; data: pointer): bool =
     assert(divider.next != nil)
     copyMem(data, divider.next + 1, queue.stride)
 
-    store(queue.divider, cast[uint64](divider.next), moRelease)
+    store(queue.divider, cast[uint](divider.next), moRelease)
     result = true
   else:
     result = false
@@ -193,8 +197,9 @@ proc full*(queue: ptr SpscQueue): bool =
           result = false
           break
         bin = bin.next
-  
+
   result = true
 
 template produceAndGrow*(queue, data: untyped): bool =
-    if full(queue): grow(queue) else: produce(queue, data)
+  if full(queue): discard grow(queue)
+  produce(queue, data)

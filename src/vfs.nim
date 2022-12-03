@@ -1,4 +1,4 @@
-import std/os, std/private/globs,
+import std/[os, pathnorm], std/private/globs,
        api, fuse, io, lockfree, threading
 
 type
@@ -53,8 +53,24 @@ const
 
 var ctx: ptr VfsState
 
+proc resolvePath(path: cstring; flags: VfsFlag): string =
+  if bool(flags and vfsfAbsolutePath):
+    result = normalizePath($path, DirSep)
+  else:
+    block outer:
+      let sPath = $path
+      for mnt in ctx.mounts:
+        if sPath[0..len(mnt.alias)-1] == mnt.alias:
+          result = normalizePath(sPath[len(mnt.alias) .. len(sPath)-1], DirSep)
+          result = joinPath(mnt.path, result)
+          break outer
+    
+      result = normalizePath(sPath, DirSep)
+      assert(fileExists(result))
+
 proc read(path: cstring; flags: VfsFlag): ptr MemBlock =
-  discard
+  let resolvedPath = resolvePath(path, flags)
+  echo resolvedPath
 
 proc worker(userData: pointer) {.thread.} =
   while not ctx.quit:
