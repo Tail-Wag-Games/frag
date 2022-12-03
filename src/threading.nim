@@ -97,7 +97,7 @@ proc init*(s: var Semaphore) =
   initCond(s.cond)
   s.count = 0
 
-proc `=destroy`*(s: var Semaphore) =
+proc destroy*(s: var Semaphore) =
   deinitCond(s.cond)
   deinitLock(s.lock)
   s.count = 0

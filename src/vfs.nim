@@ -36,9 +36,11 @@ type
 
   VfsState = object
     mounts: seq[MountPoint]
+    worker: Thread[pointer]
     requestQueue: ptr SpscQueue
     responseQueue: ptr SpscQueue
     workerSem: Semaphore
+    quit: bool
     
 const
   acRead = AsyncCommand(0)
@@ -49,7 +51,27 @@ const
   rcWriteFailed = ResponseCode(2)
   rcWriteOk = ResponseCode(3)
 
-var ctx: VfsState
+var ctx: ptr VfsState
+
+proc read(path: cstring; flags: VfsFlag): ptr MemBlock =
+  discard
+
+proc worker(userData: pointer) {.thread.} =
+  while not ctx.quit:
+    var req: AsyncRequest
+    if consume(ctx.requestQueue, addr(req)):
+      var res = AsyncResponse(
+        writeBytes: -1,
+        path: req.path,
+        userData: req.userData
+      )
+
+      case req.cmd:
+      of acRead:
+        res.callback.readFn = req.callback.readFn
+        let mem = read(req.path, req.flags)
+      else:
+        discard
 
 proc mount*(path, alias: cstring; watch: bool): bool {.cdecl.} =
   block outer:
@@ -88,10 +110,17 @@ proc readAsync(path: cstring; flags: VfsFlag; readFn: VfsAsyncReadCallback; user
   post(ctx.workerSem, 1)
 
 proc init*() =
+  ctx = createShared(VfsState)
+
   ctx.requestQueue = create(sizeof(AsyncRequest), 128)
   ctx.responseQueue = create(sizeof(AsyncResponse), 128)
 
+  block outer:
+    if isNil(ctx.requestQueue) or isNil(ctx.responseQueue):
+      break outer
+ 
   init(ctx.workerSem)
+  createThread(ctx.worker, worker, nil)
 
 proc update*() =
   var res: AsyncResponse
@@ -105,10 +134,18 @@ proc update*() =
       discard
 
 proc shutdown*() =
+  if running(ctx.worker):
+    ctx.quit = true
+    post(ctx.workerSem, 1)
+    joinThread(ctx.worker)
+    destroy(ctx.workerSem)
+
   if ctx.requestQueue != nil:
     destroy(ctx.requestQueue)
   if ctx.responseQueue != nil:
     destroy(ctx.responseQueue)
+  
+  freeShared(ctx)
 
 vfsApi = VfsApi(
   mount: mount,
