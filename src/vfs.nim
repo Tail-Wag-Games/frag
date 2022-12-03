@@ -70,7 +70,9 @@ proc resolvePath(path: cstring; flags: VfsFlag): string =
 
 proc read(path: cstring; flags: VfsFlag): ptr MemBlock =
   let resolvedPath = resolvePath(path, flags)
-  echo resolvedPath
+  result = if not bool(flags and vfsfTextFile): loadBinaryFile(resolvedPath)
+                                          else: loadTextFile(resolvedPath)
+  
 
 proc worker(userData: pointer) {.thread.} =
   while not ctx.quit:
