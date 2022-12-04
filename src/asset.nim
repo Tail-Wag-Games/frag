@@ -21,7 +21,7 @@ type
     handle: Handle
     paramsId: uint32
     resourceId: uint32
-    assetManagerId: int32
+    assetManager: cstring
     refCount: int32
     asset: Asset
     hash: Hash
@@ -88,6 +88,15 @@ proc onReadAsset(path: cstring; mem: ptr MemBlock;
           asset = addr(ctx.loadedAssets[handleIndex(hnd.id)])
         
         assert(bool(asset.resourceId))
+
+        let
+          res = addr(ctx.loadedResources[toIndex(asset.resourceId)])
+          assetMgr = addr(ctx.assetManagers[asset.assetManager])
+        
+        asset.state = asFailed
+        asset.asset = assetMgr.failedObj
+
+        del(ctx.asyncReqs, asyncRequestIdx)
       break outer
     elif asyncRequestIdx == -1:
       destroyMemBlock(mem)
