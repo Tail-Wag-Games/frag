@@ -75,7 +75,8 @@ proc findAsyncRequest(path: cstring): int =
 
     result = -1
 
-proc onReadAsset(path: cstring; mem: ptr MemBlock; userData: pointer) {.cdecl.} =
+proc onReadAsset(path: cstring; mem: ptr MemBlock;
+    userData: pointer) {.cdecl.} =
   block outer:
     let asyncRequestIdx = findAsyncRequest(path)
 
@@ -94,7 +95,8 @@ proc hashAsset(path: cstring; params: pointer; paramsSize: int): Hash =
     h = h !& hash(params)
   result = !$h
 
-proc createNewAsset(path: cstring; params: pointer; asset: Asset; name: cstring; flags: AssetLoadFlag; tags: uint32): AssetHandle =
+proc createNewAsset(path: cstring; params: pointer; asset: Asset; name: cstring;
+    flags: AssetLoadFlag; tags: uint32): AssetHandle =
   if not contains(ctx.assetManagers, name):
     assert false, "asset type must be registered first"
   let assetMgr = addr(ctx.assetManagers[name])
@@ -111,13 +113,14 @@ proc createNewAsset(path: cstring; params: pointer; asset: Asset; name: cstring;
     ctx.resources[path] = resIdx
   else:
     ctx.loadedResources[resIdx].used = true
-  
+
   let paramsSize = assetMgr.paramsSize
   var paramsId = 0'u32
   if paramsSize > 0:
     paramsId = toId(len(assetMgr.paramsBuff))
-    add(assetMgr.paramsBuff, toOpenArray[uint8](cast[ptr UncheckedArray[uint8]](params), 0, paramsSize))
-  
+    add(assetMgr.paramsBuff, toOpenArray[uint8](cast[ptr UncheckedArray[uint8]](
+        params), 0, paramsSize))
+
   let hnd = newHandleGrowPool(ctx.assetHandles)
   assert bool(hnd)
 
@@ -147,7 +150,7 @@ proc registerAssetType(name: cstring; callbacks: AssetCallbacks;
     if contains(ctx.assetManagers, name):
       assert false, "asset manager already regisitered"
       break outer
-    
+
     let assetManager = AssetManager(
       callbacks: callbacks,
       name: name,
@@ -180,22 +183,24 @@ proc loadHashed(name: cstring; path: cstring; params: pointer;
     loadFlags = loadFlags or assetMgr.forcedFlags
 
     if assetMgr.paramsSize > 0 and isNil(params):
-      logWarn("`params` of type '%s' must be supplied for this asset", assetMgr.paramsTypeName)
+      logWarn("`params` of type '%s' must be supplied for this asset",
+          assetMgr.paramsTypeName)
       assert(false, "params must not be `nil` for this asset type")
-    
-    result = cast[AssetHandle](getOrDefault(ctx.assets, hashAsset(path, params, assetMgr.paramsSize), AssetHandle(id: 0)))
+
+    result = cast[AssetHandle](getOrDefault(ctx.assets, hashAsset(path, params,
+        assetMgr.paramsSize), AssetHandle(id: 0)))
     if bool(result.id) and not bool(flags and alfReload):
       inc(ctx.loadedAssets[result.id].refCount)
     else:
       let resourceIdx = getOrDefault(ctx.resources, path, -1)
 
-      var 
+      var
         realPath = path
         res: ptr AssetResource = nil
       if resourceIdx != -1:
         res = addr(ctx.loadedResources[resourceIdx])
         realPath = res.realPath
-      
+
       if not bool(flags and alfWaitOnLoad):
         result = createNewAsset(path, params, assetMgr.asyncObj, name, flags, tags)
         let a = addr(ctx.loadedAssets[handleIndex(result.id)])
