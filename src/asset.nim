@@ -65,8 +65,27 @@ const
 
 var ctx: AssetContext
 
+proc findAsyncRequest(path: cstring): int =
+  block outer:
+    let pathHash = hash(path)
+    for i, asyncReq in ctx.asyncReqs:
+      if asyncReq.pathHash == pathHash:
+        result = i
+        break
+
+    result = -1
+
 proc onReadAsset(path: cstring; mem: ptr MemBlock; userData: pointer) {.cdecl.} =
-  discard
+  block outer:
+    let asyncRequestIdx = findAsyncRequest(path)
+
+    if isNil(mem):
+      # error opening file
+      break outer
+    elif asyncRequestIdx == -1:
+      destroyMemBlock(mem)
+      break outer
+
 
 proc hashAsset(path: cstring; params: pointer; paramsSize: int): Hash =
   var h: Hash = 0
