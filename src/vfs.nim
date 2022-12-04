@@ -72,8 +72,19 @@ proc read(path: cstring; flags: VfsFlag): ptr MemBlock =
   let resolvedPath = resolvePath(path, flags)
   result = if not bool(flags and vfsfTextFile): loadBinaryFile(resolvedPath)
                                           else: loadTextFile(resolvedPath)
-  
 
+proc write(path: cstring; mem: ptr MemBlock; flags: VfsFlag): int64 =
+  block outer:
+    let resolvedPath = resolvePath(path, flags)
+
+    let f = open(resolvedPath, if bool(flags and vfsfAppend): fmAppend else: fmWrite)
+    if not isNil(f):
+      result = writeBuffer(f, mem.data, mem.size)
+      close(f)
+      break outer
+    else:
+      result = -1
+  
 proc worker(userData: pointer) {.thread.} =
   while not ctx.quit:
     var req: AsyncRequest
@@ -88,8 +99,31 @@ proc worker(userData: pointer) {.thread.} =
       of acRead:
         res.callback.readFn = req.callback.readFn
         let mem = read(req.path, req.flags)
+
+        if not isNil(mem):
+          res.code = rcReadOk
+          res.mem.read = mem
+        else:
+          res.code = rcReadFailed
+        discard produceAndGrow(ctx.responseQueue, addr(res))
+        break
+      of acWrite:
+        res.callback.writeFn = req.callback.writeFn
+        let written = write(req.path, req.writeMem, req.flags)
+
+        if written > 0:
+          res.code = rcWriteOk
+          res.writeBytes = written
+          res.mem.write = req.writeMem
+        else:
+          res.code = rcWriteFailed
+        discard produceAndGrow(ctx.responseQueue, addr(res))
+        break
       else:
         discard
+  
+    wait(ctx.workerSem)
+
 
 proc mount*(path, alias: cstring; watch: bool): bool {.cdecl.} =
   block outer:

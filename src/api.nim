@@ -193,7 +193,7 @@ const
   vfsfNone* = VfsFlag(0x1)
   vfsfAbsolutePath* = VfsFlag(0x2)
   vfsfTextFile* = VfsFlag(0x4)
-  vfsfAPpend* = VfsFlag(0x8)
+  vfsfAppend* = VfsFlag(0x8)
 
 converter toUint32*(lf: AssetLoadFlag): uint32 = uint32(lf)
 converter toLoadFlag*(lf: uint32): AssetLoadFlag = AssetLoadFlag(lf)
