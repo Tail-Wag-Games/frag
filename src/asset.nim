@@ -6,7 +6,7 @@ type
 
   AsyncAssetLoadRequest = object
     pathHash: Hash
-    asset: AssetHandle
+    handle: AssetHandle
 
   AsyncAssetJob = object
     loadData: AssetLoadData
@@ -81,7 +81,13 @@ proc onReadAsset(path: cstring; mem: ptr MemBlock;
     let asyncRequestIdx = findAsyncRequest(path)
 
     if isNil(mem):
-      # error opening file
+      if asyncRequestIdx != -1:
+        let 
+          req = addr(ctx.asyncReqs[asyncRequestIdx])
+          hnd = req.handle
+          asset = addr(ctx.loadedAssets[handleIndex(hnd.id)])
+        
+        assert(bool(asset.resourceId))
       break outer
     elif asyncRequestIdx == -1:
       destroyMemBlock(mem)
@@ -208,7 +214,7 @@ proc loadHashed(name: cstring; path: cstring; params: pointer;
 
         let req = AsyncAssetLoadRequest(
           pathHash: hash(realPath),
-          asset: result
+          handle: result
         )
         add(ctx.asyncReqs, req)
 
