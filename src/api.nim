@@ -60,7 +60,7 @@ type
     semantic*: cstring
     semanticIndex*: int32
     vertexFormat*: sgfx.VertexFormat
-  
+
   ShaderInfo* = object
     inputs*: array[maxVertexAttributes, ShaderReflInput]
     numInputs*: int32
@@ -72,15 +72,21 @@ type
 
   GfxApi* = object
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
+    makeShaderWithData*: proc(vsDataSize: uint32; vsData: openArray[uint32];
+        vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
+        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32])
 
-  VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock; userData: pointer) {.cdecl.}
-  VfsAsyncWriteCallback* = proc(path: cstring; bytesWritten: int64; mem: ptr MemBlock; userData: pointer) {.cdecl.}
+  VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock;
+      userData: pointer) {.cdecl.}
+  VfsAsyncWriteCallback* = proc(path: cstring; bytesWritten: int64;
+      mem: ptr MemBlock; userData: pointer) {.cdecl.}
 
   VfsFlag* = distinct uint32
 
   VfsApi* = object
     mount*: proc(path, alias: cstring; watch: bool): bool {.cdecl.}
-    readAsync*: proc(path: cstring; flags: VfsFlag; readFn: VfsAsyncReadCallback; userData: pointer) {.cdecl.}
+    readAsync*: proc(path: cstring; flags: VfsFlag;
+        readFn: VfsAsyncReadCallback; userData: pointer) {.cdecl.}
 
   Asset* {.union.} = object
     id*: uint

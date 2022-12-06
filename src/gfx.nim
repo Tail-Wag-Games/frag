@@ -190,6 +190,16 @@ proc registerStage(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.} =
   if parentStage.id.bool:
     parentStage.addChildStage(result)
 
+proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ptr ShaderRefl =
+  discard
+
+proc makeShaderWithData(vsDataSize: uint32; vsData: openArray[uint32];
+        vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
+        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32]): api.Shader =
+  
+  var shaderDesc: ShaderDesc
+  let vsRefl = parseShaderReflectJson(cast[cstring](vsReflJson), int(vsReflSize - 1)) 
+
 proc initShaders*() =
   assetApi.registerAssetType(
     "shader",
@@ -217,4 +227,5 @@ proc shutdown*() =
 
 gfxApi = GfxApi(
   registerStage: registerStage,
+  makeShaderWithData: makeShaderWithData,
 )
