@@ -61,6 +61,8 @@ type
     semanticIndex*: int32
     vertexFormat*: sgfx.VertexFormat
 
+  ShaderRefl* = object
+
   ShaderInfo* = object
     inputs*: array[maxVertexAttributes, ShaderReflInput]
     numInputs*: int32
@@ -74,7 +76,7 @@ type
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: openArray[uint32];
         vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
-        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32])
+        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32]): Shader {.cdecl.}
 
   VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock;
       userData: pointer) {.cdecl.}

@@ -195,7 +195,7 @@ proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ptr 
 
 proc makeShaderWithData(vsDataSize: uint32; vsData: openArray[uint32];
         vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
-        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32]): api.Shader =
+        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32]): api.Shader {.cdecl.} =
   
   var shaderDesc: ShaderDesc
   let vsRefl = parseShaderReflectJson(cast[cstring](vsReflJson), int(vsReflSize - 1)) 
