@@ -51,8 +51,6 @@ template logWarn*(msg: string, args: varargs[string, `$`]) =
   printWarning(0, iinfo.filename, iinfo.line, msg, args)
 
 proc logTerminalBackend(entry: LogEntry) =
-  var msg: string
-
   case entry.kind
   of llInfo:
     styledEcho fgGreen, logEntryKinds[ord(entry.kind)], entry.text
@@ -74,9 +72,9 @@ proc dispatchLogEntry(entry: LogEntry) =
   logDebuggerBackend(entry)
 
 proc printInfo*(channels: uint32; sourceFile: string; line: int; fmt: string; args: varargs[string]) =
-  block:
+  block outer:
     if ctx.logLevel < llInfo:
-      break
+      break outer
     
     dispatchLogEntry(
       LogEntry(
@@ -89,9 +87,9 @@ proc printInfo*(channels: uint32; sourceFile: string; line: int; fmt: string; ar
     )
 
 proc printDebug*(channels: uint32; sourceFile: string; line: int; fmt: string; args: varargs[string]) =
-  block:
+  block outer:
     if ctx.logLevel < llDebug:
-      break
+      break outer
     
     dispatchLogEntry(
       LogEntry(
@@ -104,9 +102,9 @@ proc printDebug*(channels: uint32; sourceFile: string; line: int; fmt: string; a
     )
 
 proc printVerbose*(channels: uint32; sourceFile: string; line: int; fmt: string; args: varargs[string]) =
-  block:
+  block outer:
     if ctx.logLevel < llVerbose:
-      break
+      break outer
     
     dispatchLogEntry(
       LogEntry(
@@ -119,9 +117,9 @@ proc printVerbose*(channels: uint32; sourceFile: string; line: int; fmt: string;
     )
 
 proc printError*(channels: uint32; sourceFile: string; line: int; fmt: string; args: varargs[string]) =
-  block:
+  block outer:
     if ctx.logLevel < llError:
-      break
+      break outer
     
     dispatchLogEntry(
       LogEntry(
@@ -134,9 +132,9 @@ proc printError*(channels: uint32; sourceFile: string; line: int; fmt: string; a
     )
 
 proc printWarning*(channels: uint32; sourceFile: string; line: int; fmt: string; args: varargs[string]) =
-  block:
+  block outer:
     if ctx.logLevel < llWarning:
-      break
+      break outer
     
     dispatchLogEntry(
       LogEntry(

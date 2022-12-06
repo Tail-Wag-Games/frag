@@ -72,6 +72,7 @@ proc read(path: cstring; flags: VfsFlag): ptr MemBlock =
   let resolvedPath = resolvePath(path, flags)
   result = if not bool(flags and vfsfTextFile): loadBinaryFile(resolvedPath)
                                           else: loadTextFile(resolvedPath)
+  echo repr result
 
 proc write(path: cstring; mem: ptr MemBlock; flags: VfsFlag): int64 =
   block outer:

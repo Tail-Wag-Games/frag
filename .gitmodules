@@ -10,3 +10,6 @@
 [submodule "thirdparty/sokol-nim"]
 	path = thirdparty/sokol-nim
 	url = https://github.com/floooh/sokol-nim
+[submodule "thirdparty/glslcc"]
+	path = thirdparty/glslcc
+	url = git@github.com:Tail-Wag-Games/glslcc.git

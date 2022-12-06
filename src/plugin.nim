@@ -59,12 +59,11 @@ proc initPlugins*() =
         idx = ctx.pluginUpdateOrder[i]
         handle = ctx.plugins[idx].addr
 
-      if not openPlugin(handle.data.plugin.addr, addr handle.filepath[0]).bool:
-        echo "failed initializing plugin"
+      if not openPlugin(handle.data.plugin.addr, cast[cstring](addr handle.filepath[0])).bool:
+        logWarn("failed initialing plugin: $#", handle.filepath)
         break outer
 
       logDebug("initialized plugin!")
-      logVerbose("initialized plugin!")
 
 proc update*() =
   block:

@@ -44,6 +44,7 @@ proc destroyMemBlock*(mem: ptr MemBlock) =
 proc loadBinaryFile*(filepath: string): ptr MemBlock =
   block outer:
     var f: File
+    echo filepath
     if open(f, filepath):
       let size = getFileSize(f)
       if size > 0:
@@ -55,7 +56,7 @@ proc loadBinaryFile*(filepath: string): ptr MemBlock =
       close(f)
       break outer
 
-  result = nil
+    result = nil
 
 proc loadTextFile*(filepath: string): ptr MemBlock =
   block outer:

@@ -20,4 +20,6 @@ task build, "build frag executable":
 task debugBuild, "build frag executable with debug symbols":
   exec "cl /DDEBUG /c /Zi /I.\\thirdparty\\cr /Fd.\\thirdparty\\cr.pdb /Fo.\\thirdparty\\crd.o .\\thirdparty\\cr.cpp"
   exec "lib /out:.\\thirdparty\\crd.lib C:\\Users\\Zach\\dev\\frag\\thirdparty\\crd.o"
-  
+
+task compileShaders, "compile shaders":
+  exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=basic -o C:\\Users\\Zach\\dev\\frag\\src\\basic.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\basic.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\basic.frag"

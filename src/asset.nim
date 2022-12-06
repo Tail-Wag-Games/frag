@@ -21,7 +21,7 @@ type
     handle: Handle
     paramsId: uint32
     resourceId: uint32
-    assetManager: cstring
+    assetManagerName: cstring
     refCount: int32
     asset: Asset
     hash: Hash
@@ -65,13 +65,22 @@ const
 
 var ctx: AssetContext
 
+template assetErrMsg(path, realPath, msgPref: untyped) =
+  if path != realPath:
+    logWarn("$# asset '$# -> $#' failed", msgPref, path, realpath)
+  else:
+    logWarn("$# asset '$#' failed", msgPref, path)
+
 proc findAsyncRequest(path: cstring): int =
   block outer:
+    echo path
+    echo ctx.asyncReqs
+    echo hash(path)
     let pathHash = hash(path)
     for i, asyncReq in ctx.asyncReqs:
       if asyncReq.pathHash == pathHash:
         result = i
-        break
+        break outer
 
     result = -1
 
@@ -91,7 +100,9 @@ proc onReadAsset(path: cstring; mem: ptr MemBlock;
 
         let
           res = addr(ctx.loadedResources[toIndex(asset.resourceId)])
-          assetMgr = addr(ctx.assetManagers[asset.assetManager])
+          assetMgr = addr(ctx.assetManagers[asset.assetManagerName])
+
+        assetErrMsg(res.path, res.realPath, "opening")
         
         asset.state = asFailed
         asset.asset = assetMgr.failedObj
@@ -101,6 +112,38 @@ proc onReadAsset(path: cstring; mem: ptr MemBlock;
     elif asyncRequestIdx == -1:
       destroyMemBlock(mem)
       break outer
+
+    let
+      req = addr(ctx.asyncReqs[asyncRequestIdx])
+      hnd = req.handle
+      asset = addr(ctx.loadedAssets[handleIndex(hnd.id)])
+    
+    assert(bool(asset.resourceId))
+
+    let
+      res = addr(ctx.loadedResources[toIndex(asset.resourceId)])
+      assetMgr = addr(ctx.assetManagers[asset.assetManagerName])
+    
+    var pParams: pointer
+    if bool(asset.paramsId):
+      pParams = addr(assetMgr.paramsBuff[toIndex(asset.paramsId)])
+    
+    var aParams = AssetLoadParams(
+      path: res.path,
+      params: pParams,
+      tags: asset.tags,
+      flags: asset.loadFlags
+    )
+
+    let loadData = assetMgr.callbacks.onPrepare(addr(aParams), mem)
+
+    del(ctx.asyncReqs, asyncRequestIdx)
+    if not bool(loadData.asset.id):
+      assetErrMsg(res.path, res.realPath, "preparing")
+      destroyMemBlock(mem)
+      break outer
+
+
 
 
 proc hashAsset(path: cstring; params: pointer; paramsSize: int): Hash =
@@ -143,6 +186,7 @@ proc createNewAsset(path: cstring; params: pointer; asset: Asset; name: cstring;
     handle: hnd,
     paramsId: paramsId,
     resourceId: toId(resIdx),
+    assetManagerName: name,
     refCount: 1,
     asset: asset,
     hash: hashAsset(path, params, paramsSize),
@@ -198,7 +242,7 @@ proc loadHashed(name: cstring; path: cstring; params: pointer;
     loadFlags = loadFlags or assetMgr.forcedFlags
 
     if assetMgr.paramsSize > 0 and isNil(params):
-      logWarn("`params` of type '%s' must be supplied for this asset",
+      logWarn("`params` of type '$#' must be supplied for this asset",
           assetMgr.paramsTypeName)
       assert(false, "params must not be `nil` for this asset type")
 
