@@ -1,6 +1,6 @@
-import std/hashes,
+import std/[hashes, json],
        sokol/gfx as sgfx, sokol/glue as sglue,
-       api, fuse, io, primer
+       api, fuse, logging, io, primer
 
 const
   MaxStages = 1024
@@ -191,7 +191,25 @@ proc registerStage(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.} =
     parentStage.addChildStage(result)
 
 proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ptr ShaderRefl =
-  discard
+  block outer:
+    var parsed: JsonNode
+    # TODO: patch stdlib if necessary to get rid of these bullshit exceptions
+    try:
+      parsed = parseJson($stageReflJson)
+    except:
+      break outer
+  
+    var stage = ssCount
+    if contains(parsed, "vs"):
+      stage = ssVs
+    elif contains(parsed, "fs"):
+      stage = ssFs
+    elif contains(parsed, "cs"):
+      stage = ssCs
+    
+    if stage == ssCount or stage == ssCs:
+      logError("failed loading shader reflection data: no valid stages")
+      break outer
 
 proc makeShaderWithData(vsDataSize: uint32; vsData: openArray[uint32];
         vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;

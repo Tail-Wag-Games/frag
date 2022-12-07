@@ -54,6 +54,8 @@ type
     height*: proc(): int32 {.cdecl.}
     name*: proc(): cstring {.cdecl.}
     windowSize*: proc(sizie: ptr Float2f) {.cdecl.}
+  
+  ShaderStage* = distinct uint32
 
   ShaderReflInput* = object
     name*: cstring
@@ -203,11 +205,19 @@ const
   vfsfTextFile* = VfsFlag(0x4)
   vfsfAppend* = VfsFlag(0x8)
 
+  ssVs* = ShaderStage(0)
+  ssFs* = ShaderStage(1)
+  ssCs* = ShaderStage(2)
+  ssCount* = ShaderStage(3)
+
 converter toUint32*(lf: AssetLoadFlag): uint32 = uint32(lf)
 converter toLoadFlag*(lf: uint32): AssetLoadFlag = AssetLoadFlag(lf)
 
 converter toUint32*(lf: VfsFlag): uint32 = uint32(lf)
 converter toVfsFlag*(lf: uint32): VfsFlag = VfsFlag(lf)
+
+proc `==`*(a, b: ShaderStage): bool {.borrow.}
+
 
 when defined host:
   when defined debug:
