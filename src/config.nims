@@ -1,7 +1,9 @@
 import std / [os, strutils]
 
 switch("gc", "arc")
+switch("tlsEmulation", "off")
 switch("define", "useMalloc")
+switch("define", "host")
 
 let
   thirdPartyPath = projectDir() / ".." / "thirdparty"

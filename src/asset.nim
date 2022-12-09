@@ -73,9 +73,6 @@ template assetErrMsg(path, realPath, msgPref: untyped) =
 
 proc findAsyncRequest(path: cstring): int =
   block outer:
-    echo path
-    echo ctx.asyncReqs
-    echo hash(path)
     let pathHash = hash(path)
     for i, asyncReq in ctx.asyncReqs:
       if asyncReq.pathHash == pathHash:

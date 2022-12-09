@@ -1,4 +1,4 @@
-import std/atomics,
+import std/[atomics, macros],
        sokol/gfx as sgfx,
        config, io, smath
 
@@ -218,6 +218,35 @@ converter toVfsFlag*(lf: uint32): VfsFlag = VfsFlag(lf)
 
 proc `==`*(a, b: ShaderStage): bool {.borrow.}
 
+macro fragState*(t: typed): untyped =
+  let typeNode = if t[0][1].kind == nnkSym: 
+      newIdentNode(t[0][1].strVal) 
+    elif t[0][1].kind == nnkPtrTy: 
+      nnkPtrTy.newTree(newIdentNode(t[0][1][0].strVal)) 
+    else: 
+      newIdentNode("")
+  
+  let pragmaNode = quote do:
+    {.emit: "#pragma section(\".state\", read, write)".}
+
+  result = nnkStmtList.newTree(
+    pragmaNode,
+    nnkVarSection.newTree(
+      nnkIdentDefs.newTree(
+        nnkPragmaExpr.newTree(
+          newIdentNode(t[0][0].strVal),
+          nnkPragma.newTree(
+            nnkExprColonExpr.newTree(
+              newIdentNode("codegenDecl"),
+              newLit("__declspec(allocate(\".state\")) $# $#")
+            )
+          )
+        ),
+        typeNode,
+        newEmptyNode()
+      )
+    )
+  )
 
 when defined host:
   when defined debug:
@@ -228,3 +257,7 @@ when defined host:
   proc openPlugin*(ctx: ptr Plugin; fullpath: cstring): bool {.importc: "cr_plugin_open".}
   proc updatePlugin*(ctx: ptr Plugin; reloadCheck: bool = true): int32 {.importc: "cr_plugin_update", discardable.}
   proc closePlugin*(ctx: ptr Plugin) {.importc: "cr_plugin_close".}
+
+when isMainModule:
+  dumpTree:
+    var ctx {.fragState.}: ShellShockedState
