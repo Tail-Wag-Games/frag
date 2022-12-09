@@ -55,15 +55,45 @@ type
     name*: proc(): cstring {.cdecl.}
     windowSize*: proc(sizie: ptr Float2f) {.cdecl.}
   
+  ShaderCodeType* = distinct uint32
+  ShaderLang* = distinct uint32
   ShaderStage* = distinct uint32
 
   ShaderReflInput* = object
-    name*: cstring
-    semantic*: cstring
+    name*: array[32, char]
+    semantic*: array[32, char]
     semanticIndex*: int32
     vertexFormat*: sgfx.VertexFormat
+  
+  ShaderReflUniformBuffer* = object
+    name*: array[32, char]
+    sizeBytes*: int32
+    binding*: int32
+    arraySize*: int32
+
+  ShaderReflBuffer* = object
+    name*: array[32, char]
+    sizeBytes*: int32
+    binding*: int32
+    arrayStride*: int32
+  
+  ShaderReflTexture* = object
+    name*: array[32, char]
+    binding*: int32
+    imageType*: sgfx.ImageType
 
   ShaderRefl* = object
+    lang*: ShaderLang
+    stage*: ShaderStage
+    profileVersion*: int32
+    sourceFile*: array[32, char]
+    inputs*: seq[ShaderReflInput]
+    textures*: seq[ShaderReflTexture]
+    storageImages*: seq[ShaderReflTexture]
+    storageBuffers*: seq[ShaderReflBuffer]
+    uniformBuffers*: seq[ShaderReflUniformBuffer]
+    codeType*: ShaderCodeType
+    flattenUbos*: bool
 
   ShaderInfo* = object
     inputs*: array[maxVertexAttributes, ShaderReflInput]

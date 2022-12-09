@@ -190,26 +190,56 @@ proc registerStage(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.} =
   if parentStage.id.bool:
     parentStage.addChildStage(result)
 
-proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ptr ShaderRefl =
+proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ref ShaderRefl =
   block outer:
     var parsed: JsonNode
-    # TODO: patch stdlib if necessary to get rid of these bullshit exceptions
+
     try:
       parsed = parseJson($stageReflJson)
     except:
       break outer
   
-    var stage = ssCount
-    if contains(parsed, "vs"):
-      stage = ssVs
-    elif contains(parsed, "fs"):
-      stage = ssFs
-    elif contains(parsed, "cs"):
-      stage = ssCs
+    var
+      jStage: JsonNode 
+      stage = ssCount
+
+    block findStage: 
+      jStage = parsed{"vs"}
+      if jStage != nil:
+        stage = ssVs
+        break findStage
+
+      jStage = parsed{"fs"}
+      if jStage != nil:
+        stage = ssFs
+        break findStage
+
+      jStage = parsed{"cs"}
+      if jStage != nil:
+        stage = ssFs
+        break findStage
     
     if stage == ssCount or stage == ssCs:
       logError("failed loading shader reflection data: no valid stages")
       break outer
+
+    var 
+      jInputs: seq[JsonNode]
+      jUniforms: seq[JsonNode]
+      jTextures: seq[JsonNode]
+      jStorageImages: seq[JsonNode]
+      jStorageBuffers: seq[JsonNode]
+
+    if stage == ssVs:
+      jInputs = getElems(jStage{"inputs"})
+    
+    jUniforms = getElems(jStage{"uniformBuffers"})
+    jTextures = getElems(jStage{"textures"})
+    jStorageImages = getElems(jStage{"storageImages"})
+    jStorageBuffers = getElems(jStage{"storageBuffers"})
+
+    result = new ShaderRefl
+    
 
 proc makeShaderWithData(vsDataSize: uint32; vsData: openArray[uint32];
         vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
