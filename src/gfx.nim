@@ -112,6 +112,19 @@ type
 var
   ctx: GfxState
 
+proc strToShaderLang(s: string): ShaderLang =
+  case s:
+  of "gles":
+    result = slGles
+  of "hlsl":
+    result = slHlsl
+  of "msl":
+    result = slMsl
+  of "glsl":
+    result = slGlsl
+  else:
+    result = slCount
+
 proc onPrepareShader(params: ptr AssetLoadParams;
         mem: ptr MemBlock): AssetLoadData {.cdecl.} =
   block:
@@ -239,8 +252,12 @@ proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ref 
     jStorageBuffers = getElems(jStage{"storageBuffers"})
 
     result = new ShaderRefl
+    result.lang = strToShaderLang(parsed{"language"}.getStr(""))
+    result.stage = stage
+    result.profileVersion = parsed{"profile_version"}.getInt(0)
+    result.codeType = if parsed{"bytecode"}.getBool(false): sctBytecode else: sctSource
+    result.flattenUbos = parsed{"flatten_ubos"}.getBool(false)
     
-
 proc makeShaderWithData(vsDataSize: uint32; vsData: openArray[uint32];
         vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
         fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32]): api.Shader {.cdecl.} =

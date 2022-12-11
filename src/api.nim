@@ -85,7 +85,7 @@ type
   ShaderRefl* = object
     lang*: ShaderLang
     stage*: ShaderStage
-    profileVersion*: int32
+    profileVersion*: int
     sourceFile*: array[32, char]
     inputs*: seq[ShaderReflInput]
     textures*: seq[ShaderReflTexture]
@@ -234,6 +234,15 @@ const
   vfsfAbsolutePath* = VfsFlag(0x2)
   vfsfTextFile* = VfsFlag(0x4)
   vfsfAppend* = VfsFlag(0x8)
+
+  sctSource* = ShaderCodeType(0)
+  sctBytecode* = ShaderCodeType(1)
+
+  slGles* = ShaderLang(0)
+  slHlsl* = ShaderLang(1)
+  slMsl* = ShaderLang(2)
+  slGlsl* = ShaderLang(3)
+  slCount* = ShaderLang(4)
 
   ssVs* = ShaderStage(0)
   ssFs* = ShaderStage(1)
