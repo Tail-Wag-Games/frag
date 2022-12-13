@@ -258,7 +258,8 @@ proc fromJsonHook(a: var ShaderReflUniformBuffer; b: JsonNode) =
 proc fromJsonHook(a: var ShaderReflTexture; b: JsonNode) =
   a.name = b{"name"}.getStr("")
   a.binding = b{"binding"}.getInt(0)
-  a.imageType = strToShaderTextureType(b{"dimension"}.getStr(""), b{"array"}.getBool(false))
+  a.imageType = strToShaderTextureType(b{"dimension"}.getStr(""), b{
+      "array"}.getBool(false))
 
 proc fromJsonHook(a: var ShaderReflBuffer; b: JsonNode) =
   a.name = b{"name"}.getStr("")
@@ -276,7 +277,7 @@ proc fromJsonHook(a: var ShaderRefl; b: JsonNode) =
       if jStage != nil:
         a.stage = ssVs
         break determineStage
-      
+
       jStage = b{"fs"}
       if jStage != nil:
         a.stage = ssFs
@@ -304,7 +305,7 @@ proc fromJsonHook(a: var ShaderRefl; b: JsonNode) =
         a.inputs.setLen(jInputs.len())
         for i, input in jInputs.getElems(@[]):
           fromJsonHook(a.inputs[i], input)
-    
+
     let jUniformBuffers = jStage{"uniform_buffers"}
     if jUniformBuffers != nil:
       a.uniformBuffers.setLen(jUniformBuffers.len())
@@ -312,7 +313,7 @@ proc fromJsonHook(a: var ShaderRefl; b: JsonNode) =
         fromJsonHook(a.uniformBuffers[i], uniformBuffer)
         if a.uniformBuffers[i].arraySize > 1:
           assert(not a.flattenUbos, "uniform buffer array should be generated with --flatten-ubos")
-    
+
     let jTextures = jStage{"textures"}
     if jTextures != nil:
       a.textures.setLen(jTextures.len())
@@ -323,7 +324,7 @@ proc fromJsonHook(a: var ShaderRefl; b: JsonNode) =
     if jStorageImages != nil:
       a.storageImages.setLen(jStorageImages.len())
       for i, storageImage in jStorageImages.getElems(@[]):
-        fromJsonHook(a.storageImages[i], storageImage) 
+        fromJsonHook(a.storageImages[i], storageImage)
 
     let jStorageBuffers = jStage{"storage_buffers"}
     if jStorageBuffers != nil:
@@ -331,7 +332,8 @@ proc fromJsonHook(a: var ShaderRefl; b: JsonNode) =
       for i, storageBuffer in jStorageBuffers.getElems(@[]):
         fromJsonHook(a.storageBuffers[i], storageBuffer)
 
-proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ref ShaderRefl =
+proc parseShaderReflectJson(stageReflJson: cstring;
+    stageReflJsonLen: int): ref ShaderRefl =
   block outer:
     result = new ShaderRefl
 
@@ -341,13 +343,28 @@ proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ref 
       logError("failed parsing shader reflection json")
       break outer
 
-proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
-        vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32]; fsDataSize: uint32;
-        fsData: ptr UncheckedArray[uint32]; fsReflSize: uint32; fsReflJson: ptr UncheckedArray[uint32]): api.Shader {.cdecl.} =
-  
-  var shaderDesc: ShaderDesc
-  discard parseShaderReflectJson(cast[cstring](addr(vsReflJson[0])), int(vsReflSize) - 1)
+proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
+    vsSize: uint32; fsRefl: ref ShaderRefl; fs: pointer; fsSize: uint32;
+    nameHandle: ptr uint32): ptr ShaderDesc {.cdecl.} =
   result
+
+proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
+        vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
+            fsDataSize: uint32;
+        fsData: ptr UncheckedArray[uint32]; fsReflSize: uint32;
+            fsReflJson: ptr UncheckedArray[uint32]): api.Shader {.cdecl.} =
+
+  var shaderDesc: ShaderDesc
+  let
+    vsRefl = parseShaderReflectJson(cast[cstring](addr(vsReflJson[0])), int(
+        vsReflSize) - 1)
+    fsRefl = parseShaderReflectJson(cast[cstring](addr(vsReflJson[0])), int(
+        fsReflSize) - 1)
+
+  result.shd = gfxApi.makeShader(
+    setupShaderDesc(addr(shaderDesc), vsRefl, vsData, vsDataSize, fsRefl,
+        fsData, fsDataSize, addr(result.info.nameHandle))
+  )
 
 proc initShaders*() =
   assetApi.registerAssetType(
@@ -375,6 +392,7 @@ proc shutdown*() =
   sgfx.shutdown()
 
 gfxApi = GfxApi(
+  makeShader: sgfx.c_makeShader,
   registerStage: registerStage,
   makeShaderWithData: makeShaderWithData,
 )

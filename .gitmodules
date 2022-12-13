@@ -9,7 +9,7 @@
 	url = https://github.com/Tail-Wag-Games/cr.git
 [submodule "thirdparty/sokol-nim"]
 	path = thirdparty/sokol-nim
-	url = https://github.com/floooh/sokol-nim
+	url = https://github.com/Tail-Wag-Games/sokol-nim
 [submodule "thirdparty/glslcc"]
 	path = thirdparty/glslcc
 	url = git@github.com:Tail-Wag-Games/glslcc.git

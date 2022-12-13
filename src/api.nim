@@ -105,6 +105,7 @@ type
     info*: ShaderInfo
 
   GfxApi* = object
+    makeShader*: proc(desc:ptr ShaderDesc): sgfx.Shader {.cdecl.}
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[
         uint32]; vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
