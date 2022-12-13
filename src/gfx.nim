@@ -152,7 +152,7 @@ proc strToShaderVertexFormat(s: string): VertexFormat =
   of "uint10n2":
     result = vertexFormatUint10N2
   else:
-    result = vertexFormatInvalid
+    result = vertexFormatNum
 
 proc strToShaderTextureType(s: string; arr: bool): ImageType =
   case s:
