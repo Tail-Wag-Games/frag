@@ -1,4 +1,4 @@
-import std/[hashes, json],
+import std/[hashes, json, jsonutils, os],
        sokol/gfx as sgfx, sokol/glue as sglue,
        api, fuse, logging, io, primer
 
@@ -125,13 +125,53 @@ proc strToShaderLang(s: string): ShaderLang =
   else:
     result = slCount
 
+proc strToShaderVertexFormat(s: string): VertexFormat =
+  case s:
+  of "float":
+    result = vertexFormatFloat
+  of "float2":
+    result = vertexFormatFloat2
+  of "float3":
+    result = vertexFormatFloat3
+  of "float4":
+    result = vertexFormatFloat4
+  of "byte4":
+    result = vertexFormatByte4
+  of "ubyte4":
+    result = vertexFormatUbyte4
+  of "ubyte4n":
+    result = vertexFormatUbyte4n
+  of "short2":
+    result = vertexFormatShort2
+  of "short2n":
+    result = vertexFormatShort2n
+  of "short4":
+    result = vertexFormatShort4
+  of "short4n":
+    result = vertexFormatShort4n
+  of "uint10n2":
+    result = vertexFormatUint10N2
+  else:
+    result = vertexFormatInvalid
+
+proc strToShaderTextureType(s: string; arr: bool): ImageType =
+  case s:
+  of "2d":
+    result = if arr: imageTypeArray else: imageType2d
+  of "3d":
+    result = imageType3d
+  of "cube":
+    result = imageTypeCube
+  else:
+    result = imageTypeDefault
+
 proc onPrepareShader(params: ptr AssetLoadParams;
         mem: ptr MemBlock): AssetLoadData {.cdecl.} =
-  block:
+  block outer:
     let shader = cast[ptr api.Shader](alloc0(sizeof(api.Shader)))
     if isNil(shader):
       result.asset = Asset(id: 0)
-      break
+      break outer
 
     let info = addr(shader.info)
 
@@ -143,7 +183,7 @@ proc onPrepareShader(params: ptr AssetLoadParams;
     if sgs != SgsChunkCC:
       assert false, "invalid sgs file"
       result.asset = Asset(id: 0)
-      break
+      break outer
 
 proc onLoadShader(data: ptr AssetLoadData; params: ptr AssetLoadParams;
         mem: ptr MemBlock): AssetLoadData {.cdecl.} =
@@ -203,67 +243,111 @@ proc registerStage(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.} =
   if parentStage.id.bool:
     parentStage.addChildStage(result)
 
+proc fromJsonHook(a: var ShaderReflInput; b: JsonNode) =
+  a.name = b{"name"}.getStr("")
+  a.semantic = b{"semantic"}.getStr("")
+  a.semanticIndex = b{"semantic_index"}.getInt(0)
+  a.vertexFormat = strToShaderVertexFormat(b{"type"}.getStr(""))
+
+proc fromJsonHook(a: var ShaderReflUniformBuffer; b: JsonNode) =
+  a.name = b{"name"}.getStr("")
+  a.numBytes = b{"block_size"}.getInt(0)
+  a.binding = b{"binding"}.getInt(0)
+  a.arraySize = b{"array"}.getInt(0)
+
+proc fromJsonHook(a: var ShaderReflTexture; b: JsonNode) =
+  a.name = b{"name"}.getStr("")
+  a.binding = b{"binding"}.getInt(0)
+  a.imageType = strToShaderTextureType(b{"dimension"}.getStr(""), b{"array"}.getBool(false))
+
+proc fromJsonHook(a: var ShaderReflBuffer; b: JsonNode) =
+  a.name = b{"name"}.getStr("")
+  a.numBytes = b{"block_size"}.getInt(0)
+  a.binding = b{"binding"}.getInt(0)
+  a.arrayStride = b{"unsized_array_stride"}.getInt(1)
+
+proc fromJsonHook(a: var ShaderRefl; b: JsonNode) =
+  block outer:
+    a.lang = strToShaderLang(b{"language"}.getStr(""))
+
+    var jStage: JsonNode
+    block determineStage:
+      jStage = b{"vs"}
+      if jStage != nil:
+        a.stage = ssVs
+        break determineStage
+      
+      jStage = b{"fs"}
+      if jStage != nil:
+        a.stage = ssFs
+        break determineStage
+
+      jStage = b{"cs"}
+      if jStage != nil:
+        a.stage = ssCs
+        break determineStage
+
+      a.stage = ssCount
+
+    if a.stage == ssCount or a.stage == ssCs:
+      logError("failed parsing shader reflection data: no valid stages")
+      break outer
+
+    a.profileVersion = b{"profile_version"}.getInt(0)
+    a.codeType = if b{"bytecode"}.getBool(false): sctBytecode else: sctSource
+    a.flattenUbos = b{"flatten_ubos"}.getBool(false)
+    a.sourceFile = lastPathPart(jStage{"file"}.getStr(""))
+
+    if a.stage == ssVs:
+      let jInputs = jStage{"inputs"}
+      if jInputs != nil:
+        a.inputs.setLen(jInputs.len())
+        for i, input in jInputs.getElems(@[]):
+          fromJsonHook(a.inputs[i], input)
+    
+    let jUniformBuffers = jStage{"uniform_buffers"}
+    if jUniformBuffers != nil:
+      a.uniformBuffers.setLen(jUniformBuffers.len())
+      for i, uniformBuffer in jUniformBuffers.getElems(@[]):
+        fromJsonHook(a.uniformBuffers[i], uniformBuffer)
+        if a.uniformBuffers[i].arraySize > 1:
+          assert(not a.flattenUbos, "uniform buffer array should be generated with --flatten-ubos")
+    
+    let jTextures = jStage{"textures"}
+    if jTextures != nil:
+      a.textures.setLen(jTextures.len())
+      for i, texture in jTextures.getElems(@[]):
+        fromJsonHook(a.textures[i], texture)
+
+    let jStorageImages = jStage{"storage_images"}
+    if jStorageImages != nil:
+      a.storageImages.setLen(jStorageImages.len())
+      for i, storageImage in jStorageImages.getElems(@[]):
+        fromJsonHook(a.storageImages[i], storageImage) 
+
+    let jStorageBuffers = jStage{"storage_buffers"}
+    if jStorageBuffers != nil:
+      a.storageBuffers.setLen(jStorageBuffers.len())
+      for i, storageBuffer in jStorageBuffers.getElems(@[]):
+        fromJsonHook(a.storageBuffers[i], storageBuffer)
+
 proc parseShaderReflectJson(stageReflJson: cstring; stageReflJsonLen: int): ref ShaderRefl =
   block outer:
-    var parsed: JsonNode
+    result = new ShaderRefl
 
     try:
-      parsed = parseJson($stageReflJson)
+      fromJsonHook(result[], parseJson($stageReflJson))
     except:
-      break outer
-  
-    var
-      jStage: JsonNode 
-      stage = ssCount
-
-    block findStage: 
-      jStage = parsed{"vs"}
-      if jStage != nil:
-        stage = ssVs
-        break findStage
-
-      jStage = parsed{"fs"}
-      if jStage != nil:
-        stage = ssFs
-        break findStage
-
-      jStage = parsed{"cs"}
-      if jStage != nil:
-        stage = ssFs
-        break findStage
-    
-    if stage == ssCount or stage == ssCs:
-      logError("failed loading shader reflection data: no valid stages")
+      logError("failed parsing shader reflection json")
       break outer
 
-    var 
-      jInputs: seq[JsonNode]
-      jUniforms: seq[JsonNode]
-      jTextures: seq[JsonNode]
-      jStorageImages: seq[JsonNode]
-      jStorageBuffers: seq[JsonNode]
-
-    if stage == ssVs:
-      jInputs = getElems(jStage{"inputs"})
-    
-    jUniforms = getElems(jStage{"uniformBuffers"})
-    jTextures = getElems(jStage{"textures"})
-    jStorageImages = getElems(jStage{"storageImages"})
-    jStorageBuffers = getElems(jStage{"storageBuffers"})
-
-    result = new ShaderRefl
-    result.lang = strToShaderLang(parsed{"language"}.getStr(""))
-    result.stage = stage
-    result.profileVersion = parsed{"profile_version"}.getInt(0)
-    result.codeType = if parsed{"bytecode"}.getBool(false): sctBytecode else: sctSource
-    result.flattenUbos = parsed{"flatten_ubos"}.getBool(false)
-    
-proc makeShaderWithData(vsDataSize: uint32; vsData: openArray[uint32];
-        vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
-        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32]): api.Shader {.cdecl.} =
+proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
+        vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32]; fsDataSize: uint32;
+        fsData: ptr UncheckedArray[uint32]; fsReflSize: uint32; fsReflJson: ptr UncheckedArray[uint32]): api.Shader {.cdecl.} =
   
   var shaderDesc: ShaderDesc
-  let vsRefl = parseShaderReflectJson(cast[cstring](vsReflJson), int(vsReflSize - 1)) 
+  discard parseShaderReflectJson(cast[cstring](addr(vsReflJson[0])), int(vsReflSize) - 1)
+  result
 
 proc initShaders*() =
   assetApi.registerAssetType(

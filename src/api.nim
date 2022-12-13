@@ -54,39 +54,39 @@ type
     height*: proc(): int32 {.cdecl.}
     name*: proc(): cstring {.cdecl.}
     windowSize*: proc(sizie: ptr Float2f) {.cdecl.}
-  
+
   ShaderCodeType* = distinct uint32
   ShaderLang* = distinct uint32
   ShaderStage* = distinct uint32
 
   ShaderReflInput* = object
-    name*: array[32, char]
-    semantic*: array[32, char]
-    semanticIndex*: int32
+    name*: string
+    semantic*: string
+    semanticIndex*: int
     vertexFormat*: sgfx.VertexFormat
-  
+
   ShaderReflUniformBuffer* = object
-    name*: array[32, char]
-    sizeBytes*: int32
-    binding*: int32
-    arraySize*: int32
+    name*: string
+    numBytes*: int
+    binding*: int
+    arraySize*: int
 
   ShaderReflBuffer* = object
-    name*: array[32, char]
-    sizeBytes*: int32
-    binding*: int32
-    arrayStride*: int32
-  
+    name*: string
+    numBytes*: int
+    binding*: int
+    arrayStride*: int
+
   ShaderReflTexture* = object
-    name*: array[32, char]
-    binding*: int32
+    name*: string
+    binding*: int
     imageType*: sgfx.ImageType
 
   ShaderRefl* = object
     lang*: ShaderLang
     stage*: ShaderStage
     profileVersion*: int
-    sourceFile*: array[32, char]
+    sourceFile*: string
     inputs*: seq[ShaderReflInput]
     textures*: seq[ShaderReflTexture]
     storageImages*: seq[ShaderReflTexture]
@@ -106,9 +106,11 @@ type
 
   GfxApi* = object
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
-    makeShaderWithData*: proc(vsDataSize: uint32; vsData: openArray[uint32];
-        vsReflSize: uint32; vsReflJson: openArray[uint32]; fsDataSize: uint32;
-        fsData: openArray[uint32]; fsReflSize: uint32; fsReflJson: openArray[uint32]): Shader {.cdecl.}
+    makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[
+        uint32]; vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
+            fsDataSize: uint32;
+        fsData: ptr UncheckedArray[uint32]; fsReflSize: uint32;
+            fsReflJson: ptr UncheckedArray[uint32]): Shader {.cdecl.}
 
   VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock;
       userData: pointer) {.cdecl.}
@@ -258,13 +260,13 @@ converter toVfsFlag*(lf: uint32): VfsFlag = VfsFlag(lf)
 proc `==`*(a, b: ShaderStage): bool {.borrow.}
 
 macro fragState*(t: typed): untyped =
-  let typeNode = if t[0][1].kind == nnkSym: 
-      newIdentNode(t[0][1].strVal) 
-    elif t[0][1].kind == nnkPtrTy: 
-      nnkPtrTy.newTree(newIdentNode(t[0][1][0].strVal)) 
-    else: 
+  let typeNode = if t[0][1].kind == nnkSym:
+      newIdentNode(t[0][1].strVal)
+    elif t[0][1].kind == nnkPtrTy:
+      nnkPtrTy.newTree(newIdentNode(t[0][1][0].strVal))
+    else:
       newIdentNode("")
-  
+
   let pragmaNode = quote do:
     {.emit: "#pragma section(\".state\", read, write)".}
 
@@ -278,12 +280,12 @@ macro fragState*(t: typed): untyped =
             nnkExprColonExpr.newTree(
               newIdentNode("codegenDecl"),
               newLit("__declspec(allocate(\".state\")) $# $#")
-            )
-          )
-        ),
-        typeNode,
-        newEmptyNode()
       )
+    )
+      ),
+      typeNode,
+      newEmptyNode()
+    )
     )
   )
 
@@ -296,7 +298,3 @@ when defined host:
   proc openPlugin*(ctx: ptr Plugin; fullpath: cstring): bool {.importc: "cr_plugin_open".}
   proc updatePlugin*(ctx: ptr Plugin; reloadCheck: bool = true): int32 {.importc: "cr_plugin_update", discardable.}
   proc closePlugin*(ctx: ptr Plugin) {.importc: "cr_plugin_close".}
-
-when isMainModule:
-  dumpTree:
-    var ctx {.fragState.}: ShellShockedState

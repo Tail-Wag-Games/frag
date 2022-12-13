@@ -8,9 +8,9 @@ when defined(macosx):
   
   import posix
 when defined(windows):
-  {.passL: "C:\\Users\\Zach\\dev\\frag\\src\\asm\\make_x86_64_ms_pe_masm.o".}
-  {.passL: "C:\\Users\\Zach\\dev\\frag\\src\\asm\\jump_x86_64_ms_pe_masm.o".}
-  {.passL: "C:\\Users\\Zach\\dev\\frag\\src\\asm\\ontop_x86_64_ms_pe_masm.o".}
+  {.link: "C:\\Users\\Zach\\dev\\frag\\src\\asm\\make_x86_64_ms_pe_masm.obj".}
+  {.link: "C:\\Users\\Zach\\dev\\frag\\src\\asm\\jump_x86_64_ms_pe_masm.obj".}
+  {.link: "C:\\Users\\Zach\\dev\\frag\\src\\asm\\ontop_x86_64_ms_pe_masm.obj".}
 
   import winim/lean
 
