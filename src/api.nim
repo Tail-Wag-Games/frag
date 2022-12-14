@@ -105,7 +105,7 @@ type
     info*: ShaderInfo
 
   GfxApi* = object
-    makeShader*: proc(desc:ptr ShaderDesc): sgfx.Shader {.cdecl.}
+    makeShader*: proc(desc: ptr ShaderDesc): sgfx.Shader {.cdecl.}
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[
         uint32]; vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
@@ -258,6 +258,7 @@ converter toLoadFlag*(lf: uint32): AssetLoadFlag = AssetLoadFlag(lf)
 converter toUint32*(lf: VfsFlag): uint32 = uint32(lf)
 converter toVfsFlag*(lf: uint32): VfsFlag = VfsFlag(lf)
 
+proc `==`*(a, b: ShaderCodeType): bool {.borrow.}
 proc `==`*(a, b: ShaderStage): bool {.borrow.}
 
 macro fragState*(t: typed): untyped =

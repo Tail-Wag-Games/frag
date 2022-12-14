@@ -92,6 +92,11 @@ type
 
 
 type
+  ShaderSetupStageDesc = object
+    refl: ref ShaderRefl
+    code: pointer
+    codeSize: int
+
   StageState = object
 
   Stage = object
@@ -344,9 +349,66 @@ proc parseShaderReflectJson(stageReflJson: cstring;
       break outer
 
 proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
-    vsSize: uint32; fsRefl: ref ShaderRefl; fs: pointer; fsSize: uint32;
+    vsSize: int; fsRefl: ref ShaderRefl; fs: pointer; fsSize: int;
     nameHandle: ptr uint32): ptr ShaderDesc {.cdecl.} =
-  result
+  desc[] = ShaderDesc()
+  
+  let
+    numStages = 2
+    stages = [
+      ShaderSetupStageDesc(refl: vsRefl, code: vs, codeSize: vsSize),
+      ShaderSetupStageDesc(refl: fsRefl, code: fs, codeSize: fsSize)
+    ]
+  
+  if nameHandle != nil:
+    desc.label = cstring(fsRefl.sourceFile)
+
+  for i in 0 ..< numStages:
+    let stage = addr(stages[i])
+    var stageDesc: ptr ShaderStageDesc
+    
+    case stage.refl.stage:
+    of ssVs:
+      stageDesc = addr(desc.vs)
+      stageDesc.d3d11Target = "vs_5_0"
+    of ssFs:
+      stageDesc = addr(desc.fs)
+      stageDesc.d3d11Target = "ps_5_0"
+    else:
+      assert(false, "not implemented")
+      break
+
+    if stage.refl.codeType == sctBytecode:
+      stageDesc.bytecode.`addr` = cast[ptr UncheckedArray[uint8]](stage.code)
+      stageDesc.byteCode.size = stage.codeSize
+    elif stage.refl.codeType == sctSource:
+      stageDesc.source = cast[cstring](stage.code)
+    
+    if stage.refl.stage == ssVs:
+      for a in 0 ..< len(vsRefl.inputs):
+        desc.attrs[a].name = vsRefl.inputs[a].name
+        desc.attrs[a].semName = vsRefl.inputs[a].semantic
+        desc.attrs[a].semIndex = int32(vsRefl.inputs[a].semanticIndex)
+
+    for iub in 0 ..< len(stage.refl.uniformBuffers):
+      let 
+        rub = addr(stage.refl.uniformBuffers[iub])
+        ub = addr(stageDesc.uniformBlocks[rub.binding])
+      ub.size = rub.numBytes
+      if stage.refl.flattenUbos:
+        ub.uniforms[0].arrayCount = int32(rub.arraySize)
+        ub.uniforms[0].name = cstring(rub.name)
+        ub.uniforms[0].`type` = uniformTypeFloat4
+    
+    for itex in 0 ..< len(stage.refl.textures):
+      let 
+        rTex = addr(stage.refl.textures[itex])
+        img = addr(stageDesc.images[rTex.binding])
+      img.name = cstring(rTex.name)
+      img.imageType = rTex.imageType
+  
+  result = desc
+
 
 proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
         vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
@@ -358,12 +420,12 @@ proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
   let
     vsRefl = parseShaderReflectJson(cast[cstring](addr(vsReflJson[0])), int(
         vsReflSize) - 1)
-    fsRefl = parseShaderReflectJson(cast[cstring](addr(vsReflJson[0])), int(
+    fsRefl = parseShaderReflectJson(cast[cstring](addr(fsReflJson[0])), int(
         fsReflSize) - 1)
 
   result.shd = gfxApi.makeShader(
-    setupShaderDesc(addr(shaderDesc), vsRefl, vsData, vsDataSize, fsRefl,
-        fsData, fsDataSize, addr(result.info.nameHandle))
+    setupShaderDesc(addr(shaderDesc), vsRefl, vsData, int32(vsDataSize), fsRefl,
+        fsData, int32(fsDataSize), addr(result.info.nameHandle))
   )
 
 proc initShaders*() =
