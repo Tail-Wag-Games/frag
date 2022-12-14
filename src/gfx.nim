@@ -409,7 +409,6 @@ proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
   
   result = desc
 
-
 proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
         vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
             fsDataSize: uint32;
