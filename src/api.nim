@@ -18,10 +18,15 @@ type
     windowWidth*: int32
     windowHeight*: int32
 
+    numJobThreads*: int32
+    maxActiveJobs*: int32
+    jobStackSize*: int32
+
   ApiType* = distinct int32
 
   CoreApi* = object
     testAndDelJob*: proc(job: Job): bool {.cdecl.}
+    numJobThreads*: proc(): int32 {.cdecl.}
     jobThreadIndex*: proc(): int32 {.cdecl.}
 
   PluginFailure* = distinct int32
@@ -104,7 +109,11 @@ type
     shd*: sgfx.Shader
     info*: ShaderInfo
 
+  GfxDrawApi* = object
+    begin*: proc(stage: GfxStage): bool {.cdecl.}
+
   GfxApi* = object
+    staged*: GfxDrawApi
     makeShader*: proc(desc: ptr ShaderDesc): sgfx.Shader {.cdecl.}
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[

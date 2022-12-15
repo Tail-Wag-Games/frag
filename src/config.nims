@@ -16,7 +16,6 @@ switch("define", mimallocIncludePath)
 
 switch("define", "host")
 switch("define", "debug")
-switch("define", "nimArcDebug")
 
 switch("path", thirdPartyPath)
 switch("path", thirdPartyPath / "winim")

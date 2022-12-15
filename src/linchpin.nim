@@ -1,9 +1,12 @@
-import sokol/gfx as sgfx, sokol/app as sapp,
+import std/cpuinfo,
+       sokol/gfx as sgfx, sokol/app as sapp,
        api, asset, fuse, gfx, job, plugin, vfs
 
 type
   CoreContext = object
     jobCtx: ptr JobContext
+
+    numThreads: int32
 
 var
   ctx: CoreContext
@@ -16,11 +19,18 @@ proc testAndDelJob(j: Job): bool {.cdecl.} =
   assert(ctx.jobCtx != nil)
   result = job.testAndDel(ctx.jobCtx, j)
 
+proc numJobThreads(): int32 {.cdecl.} =
+  ctx.numThreads
+
 proc jobThreadIndex(): int32 {.cdecl.} =
   assert(ctx.jobCtx != nil)
   result = jobThreadIndex(ctx.jobCtx)
 
 proc init*(cfg: var Config) =
+  var numWorkerThreads = if cfg.numJobThreads >= 0 : cfg.numJobThreads else: int32(countProcessors() - 1)
+  numWorkerThreads = max(1, numWorkerThreads)
+  ctx.numThreads = numWorkerThreads + 1
+
   vfs.init()
 
   ctx.jobCtx = job.createContext(JobContextDesc(
@@ -55,5 +65,6 @@ proc shutdown*() =
 
 coreApi = CoreApi(
   testAndDelJob: testAndDelJob,
+  numJobThreads: numJobThreads,
   jobThreadIndex: jobThreadIndex
 )

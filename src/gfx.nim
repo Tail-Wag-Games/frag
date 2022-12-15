@@ -1,49 +1,6 @@
-import std/[hashes, json, jsonutils, os],
+import std/[atomics, hashes, json, jsonutils, locks, os, sequtils, strformat],
        sokol/gfx as sgfx, sokol/glue as sglue,
        api, fuse, logging, io, primer
-
-const
-  MaxStages = 1024
-  MaxDepth = 64
-
-  StageOrderDepthBits = 6
-  StageOrderDepthMask = 0xfc00
-  StageOrderIdBits = 10
-  StageOrderIdMask = 0x03ff
-
-  CheckerTextureSize = 128
-
-  SgsChunkCC = makeFourCC('S', 'G', 'S', ' ')
-  SgsChunkStagCC = makeFourCC('S', 'T', 'A', 'G')
-  SgsChunkReflCC = makeFourCC('R', 'E', 'F', 'L')
-  SgsChunkCodeCC = makeFourCC('C', 'O', 'D', 'E')
-  SgsChunkDataCC = makeFourCC('D', 'A', 'T', 'A')
-
-  SgsLangGlesCC = makeFourCC('G', 'L', 'E', 'S')
-  SgsLangHlslCC = makeFourCC('H', 'L', 'S', 'L')
-  SgsLangGlslCC = makeFourCC('G', 'L', 'S', 'L')
-  SgsLangMslCC = makeFourCC('M', 'S', 'L', ' ')
-
-  SgsVertexFormatFloatCC = makeFourCC('F', 'L', 'T', '1')
-  SgsVertexFormatFloat2CC = makeFourCC('F', 'L', 'T', '2')
-  SgsVertexFormatFloat3CC = makeFourCC('F', 'L', 'T', '3')
-  SgsVertexFormatFloat4CC = makeFourCC('F', 'L', 'T', '4')
-  SgsVertexFormatIntCC = makeFourCC('I', 'N', 'T', '1')
-  SgsVertexFormatInt2CC = makeFourCC('I', 'N', 'T', '2')
-  SgsVertexFormatInt3CC = makeFourCC('I', 'N', 'T', '3')
-  SgsVertexFormatInt4CC = makeFourCC('I', 'N', 'T', '4')
-
-  SgsStageVertexCC = makeFourCC('V', 'E', 'R', 'T')
-  SgsStageFragmentCC = makeFourCC('F', 'R', 'A', 'G')
-  SgsStageComputeCC = makeFourCC('C', 'O', 'M', 'P')
-
-  SgsImageDim1DCC = makeFourCC('1', 'D', ' ', ' ')
-  SgsImageDim2DCC = makeFourCC('2', 'D', ' ', ' ')
-  SgsImageDim3DCC = makeFourCC('3', 'D', ' ', ' ')
-  SgsImageDimCubeCC = makeFourCC('C', 'U', 'B', 'E')
-  SgsImageDimRectCC = makeFourCC('R', 'E', 'C', 'T')
-  SgsImageDimBufferCC = makeFourCC('B', 'U', 'F', 'F')
-  SgsImageDimSubpassCC = makeFourCC('S', 'U', 'B', 'P')
 
 type
   SgsChunk {.packed.} = object
@@ -90,14 +47,12 @@ type
     sizeBytes: uint32
     arraySize: uint16
 
-
-type
   ShaderSetupStageDesc = object
     refl: ref ShaderRefl
     code: pointer
     codeSize: int
 
-  StageState = object
+  StageState = distinct uint32
 
   Stage = object
     name: cstring
@@ -111,11 +66,114 @@ type
     enabled: bool
     singleEnabled: bool
 
+  Command = distinct uint32
+
+  RunCommandCallback = proc(buff: ptr UncheckedArray[uint8]): int
+
+  CommandBufferRef = object
+    key: uint32
+    cmdBufferIdx: int
+    cmd: Command
+    paramsOffset: int
+
+  CommandBuffer = object
+    paramsBuffer: seq[uint8]
+    refs: seq[CommandBufferRef]
+    runningStage: GfxStage
+    index: int
+    stageOrder: uint16
+    cmdIdx: uint16
+  
+  StreamBuffer = object
+    buf: Buffer
+    offset: Atomic[uint32]
+    size: int
+
   GfxState = object
     stages: seq[Stage]
+    cmdBuffersFeed: seq[CommandBuffer]
+    cmdBuffersRender: seq[CommandBuffer]
+    stageLock: Lock
+
+    streamBuffers: seq[StreamBuffer]
+
+
+const
+  MaxStages = 1024
+  MaxDepth = 64
+
+  StageOrderDepthBits = 6
+  StageOrderDepthMask = 0xfc00
+  StageOrderIdBits = 10
+  StageOrderIdMask = 0x03ff
+
+  CheckerTextureSize = 128
+
+  cmdBeginDefaultPass = Command(0)
+  cmdBeginPass = Command(1)
+  cmdApplyViewport = Command(2)
+  cmdApplyScissorRect = Command(3)
+  cmdApplyPipeline = Command(4)
+  cmdApplyBindings = Command(5)
+  cmdApplyUniforms = Command(6)
+  cmdDraw = Command(7)
+  cmdDispatch = Command(8)
+  cmdEndPass = Command(9)
+  cmdUpdateBuffer = Command(10)
+  cmdUpdateImage = Command(11)
+  cmdAppendBuffer = Command(12)
+  cmdBeginProfile = Command(13)
+  cmdEndProfile = Command(14)
+  cmdStagePush = Command(15)
+  cmdStagePop = Command(16)
+  cmdCount = Command(17)
+
+  SgsChunkCC = makeFourCC('S', 'G', 'S', ' ')
+  SgsChunkStagCC = makeFourCC('S', 'T', 'A', 'G')
+  SgsChunkReflCC = makeFourCC('R', 'E', 'F', 'L')
+  SgsChunkCodeCC = makeFourCC('C', 'O', 'D', 'E')
+  SgsChunkDataCC = makeFourCC('D', 'A', 'T', 'A')
+
+  SgsLangGlesCC = makeFourCC('G', 'L', 'E', 'S')
+  SgsLangHlslCC = makeFourCC('H', 'L', 'S', 'L')
+  SgsLangGlslCC = makeFourCC('G', 'L', 'S', 'L')
+  SgsLangMslCC = makeFourCC('M', 'S', 'L', ' ')
+
+  SgsVertexFormatFloatCC = makeFourCC('F', 'L', 'T', '1')
+  SgsVertexFormatFloat2CC = makeFourCC('F', 'L', 'T', '2')
+  SgsVertexFormatFloat3CC = makeFourCC('F', 'L', 'T', '3')
+  SgsVertexFormatFloat4CC = makeFourCC('F', 'L', 'T', '4')
+  SgsVertexFormatIntCC = makeFourCC('I', 'N', 'T', '1')
+  SgsVertexFormatInt2CC = makeFourCC('I', 'N', 'T', '2')
+  SgsVertexFormatInt3CC = makeFourCC('I', 'N', 'T', '3')
+  SgsVertexFormatInt4CC = makeFourCC('I', 'N', 'T', '4')
+
+  SgsStageVertexCC = makeFourCC('V', 'E', 'R', 'T')
+  SgsStageFragmentCC = makeFourCC('F', 'R', 'A', 'G')
+  SgsStageComputeCC = makeFourCC('C', 'O', 'M', 'P')
+
+  SgsImageDim1DCC = makeFourCC('1', 'D', ' ', ' ')
+  SgsImageDim2DCC = makeFourCC('2', 'D', ' ', ' ')
+  SgsImageDim3DCC = makeFourCC('3', 'D', ' ', ' ')
+  SgsImageDimCubeCC = makeFourCC('C', 'U', 'B', 'E')
+  SgsImageDimRectCC = makeFourCC('R', 'E', 'C', 'T')
+  SgsImageDimBufferCC = makeFourCC('B', 'U', 'F', 'F')
+  SgsImageDimSubpassCC = makeFourCC('S', 'U', 'B', 'P')
+
+  ssNone = StageState(0)
+  ssSubmitting = StageState(1)
+  ssDone = StageState(2)
 
 var
   ctx: GfxState
+
+proc `==`*(a, b: Command): bool {.borrow.}
+proc `<`*(a, b: CommandBufferRef): bool =
+  result = a.key < b.key
+proc `<=`*(a, b: CommandBufferRef): bool =
+  result = a.key <= b.key
+
+proc `==`*(a, b: StageState): bool {.borrow.}
 
 proc strToShaderLang(s: string): ShaderLang =
   case s:
@@ -203,6 +261,220 @@ proc onReloadShader(handle: AssetHandle; prevAsset: Asset) {.cdecl.} =
 
 proc onReleaseShader(asset: Asset) {.cdecl.} =
   discard
+
+proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runBeginPassCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runApplyViewportCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runApplyScissorRectCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runDrawCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runDispatchCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runEndPassCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runUpdateBufferCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runUpdateImageCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runAppendBufferCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runEndProfileSampleCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runBeginStageCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+proc runEndStageCb(buff: ptr UncheckedArray[uint8]): int =
+  discard
+
+const runCommandCallbacks = [
+    runBeginDefaultPassCb,
+    runBeginPassCb,
+    runApplyViewportCb,
+    runApplyScissorRectCb,
+    runApplyPipelineCb,
+    runApplyBindingsCb,
+    runApplyUniformsCb,
+    runDrawCb,
+    runDispatchCb,
+    runEndPassCb,
+    runUpdateBufferCb,
+    runUpdateImageCb,
+    runAppendBufferCb,
+    runBeginProfileSampleCb,
+    runEndProfileSampleCb,
+    runBeginStageCb,
+    runEndStageCb
+  ]
+
+proc initParamsbuff(cb: ptr CommandBuffer; size: int;
+    offset: var int): ptr uint8 =
+  block outer:
+    if size == 0:
+      break outer
+
+    let currentLen = len(cb.paramsBuffer)
+    setLen(cb.paramsBuffer, alignMask(size, NaturalAlignment - 1))
+    offset = addr(cb.paramsBuffer[currentLen]) - addr(cb.paramsBuffer[0])
+
+    result = addr(cb.paramsBuffer[currentLen])
+
+
+proc recordBeginStage(name: cstring) =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "draw related calls must come between begin_stage and end_stage")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var offset = 0
+  let buff = initParamsBuff(cb, len(name), offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdStagePush,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+  copyMem(buff, name, len(name))
+
+proc recordEndStage(name: cstring) =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "draw related calls must come between begin_stage and end_stage")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdStagePop,
+    paramsOffset: len(cb.paramsBuffer)
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+proc beginStage(stage: GfxStage): bool {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  var
+    stg: ptr Stage
+    stageName: cstring
+
+  block outer:
+    acquire(ctx.stageLock)
+    stg = addr(ctx.stages[toIndex(stage.id)])
+    assert(stg.state == ssNone, "already called begin on this stage")
+
+    if not stg.enabled:
+      release(ctx.stageLock)
+      break outer
+
+    stg.state = ssSubmitting
+    cb.runningStage = stage
+    cb.stageOrder = stg.order
+    stageName = stg.name
+    release(ctx.stageLock)
+
+    recordBeginStage(stg.name)
+
+    result = true
+
+proc validateStageDependencies() =
+  acquire(ctx.stageLock)
+  for i in 0 ..< len(ctx.stages):
+    let stage = addr(ctx.stages[i])
+    if stage.state == ssDone and bool(stage.parent.id):
+      let parent = addr(ctx.stages[toIndex(stage.parent.id)])
+      if parent.state != ssDone:
+        assert(
+          false,
+          &"attempting to execute stage {stage.name} which depends on {parent.name}, however {parent.name} is not rendered"
+        )
+
+proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
+  assert(coreApi.jobThreadIndex() == 0, "`executeCommandBuffer` must be invoked from main thread")
+  # static:
+  #   assert(sizeof())
+
+  var
+    cmdCount = 0
+    curRefCount = 0
+  let cmdBufferCount = coreApi.numJobThreads()
+
+  for i in 0 ..< cmdBufferCount:
+    let cb = addr(cmds[i])
+    assert(cb.runningStage.id == 0, "command buffers must submit all calls and invoke `end_stage`")
+    cmdCount += len(cb.refs)
+
+  if bool(cmdCount):
+    var refs = newSeq[CommandbufferRef](cmdCount)
+    let initialRefs = refs
+    for i in 0 ..< cmdBufferCount:
+      let
+        cb = addr(cmds[i])
+        refCount = len(cb.refs)
+      if bool(refCount):
+        insert(refs, cb.refs, curRefCount)
+        curRefCount += refCount
+        setLen(cb.refs, 0)
+
+    refs = initialRefs
+
+    timSort(refs)
+
+    for i in 0 ..< cmdCount:
+      let
+        r = addr(refs[i])
+        cb = addr(cmds[r.cmdBufferIdx])
+      
+      discard runCommandCallbacks[int(r.cmd)](cast[ptr UncheckedArray[uint8]](addr(cb.paramsBuffer[r.paramsOffset])))
+  
+  for i in 0 ..< cmdBufferCount:
+    setLen(cmds[i].paramsBuffer, 0)
+    cmds[i].cmdIdx = 0
+  
+  result = cmdCount
+
+proc executeCommandBuffers() =
+  validateStageDependencies()
+
+  discard executeCommandBuffer(ctx.cmdBuffersRender)
+  discard executeCommandBuffer(ctx.cmdBuffersFeed)
+
+  for i in 0 ..< len(ctx.stages):
+    ctx.stages[i].state = ssNone
+  
+  for i in 0 ..< len(ctx.streamBuffers):
+    store(ctx.streamBuffers[i].offset, 0)
 
 proc addChildStage(parent, child: GfxStage) =
   assert parent.id.bool
@@ -352,21 +624,21 @@ proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
     vsSize: int; fsRefl: ref ShaderRefl; fs: pointer; fsSize: int;
     nameHandle: ptr uint32): ptr ShaderDesc {.cdecl.} =
   desc[] = ShaderDesc()
-  
+
   let
     numStages = 2
     stages = [
       ShaderSetupStageDesc(refl: vsRefl, code: vs, codeSize: vsSize),
       ShaderSetupStageDesc(refl: fsRefl, code: fs, codeSize: fsSize)
     ]
-  
+
   if nameHandle != nil:
     desc.label = cstring(fsRefl.sourceFile)
 
   for i in 0 ..< numStages:
     let stage = addr(stages[i])
     var stageDesc: ptr ShaderStageDesc
-    
+
     case stage.refl.stage:
     of ssVs:
       stageDesc = addr(desc.vs)
@@ -383,7 +655,7 @@ proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
       stageDesc.byteCode.size = stage.codeSize
     elif stage.refl.codeType == sctSource:
       stageDesc.source = cast[cstring](stage.code)
-    
+
     if stage.refl.stage == ssVs:
       for a in 0 ..< len(vsRefl.inputs):
         desc.attrs[a].name = vsRefl.inputs[a].name
@@ -391,7 +663,7 @@ proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
         desc.attrs[a].semIndex = int32(vsRefl.inputs[a].semanticIndex)
 
     for iub in 0 ..< len(stage.refl.uniformBuffers):
-      let 
+      let
         rub = addr(stage.refl.uniformBuffers[iub])
         ub = addr(stageDesc.uniformBlocks[rub.binding])
       ub.size = rub.numBytes
@@ -399,14 +671,14 @@ proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
         ub.uniforms[0].arrayCount = int32(rub.arraySize)
         ub.uniforms[0].name = cstring(rub.name)
         ub.uniforms[0].`type` = uniformTypeFloat4
-    
+
     for itex in 0 ..< len(stage.refl.textures):
-      let 
+      let
         rTex = addr(stage.refl.textures[itex])
         img = addr(stageDesc.images[rTex.binding])
       img.name = cstring(rTex.name)
       img.imageType = rTex.imageType
-  
+
   result = desc
 
 proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
@@ -444,15 +716,34 @@ proc initShaders*() =
     alfWaitOnLoad
   )
 
+proc initCommandBuffers() =
+  let numThreads = coreApi.numJobThreads()
+
+  setLen(ctx.cmdBuffersFeed, numThreads)
+  setLen(ctx.cmdBuffersRender, numThreads)
+
+  for i in 0 ..< numThreads:
+    ctx.cmdBuffersFeed[i].index = i
+    ctx.cmdBuffersRender[i].index = i
+
 proc init*() =
   sgfx.setup(sgfx.Desc(context: sglue.context()))
+
+  initLock(ctx.stageLock)
+
+  initCommandBuffers()
 
   initShaders()
 
 proc shutdown*() =
+  deinitLock(ctx.stageLock)
+
   sgfx.shutdown()
 
 gfxApi = GfxApi(
+  staged: GfxDrawApi(
+    begin: beginStage,
+  ),
   makeShader: sgfx.c_makeShader,
   registerStage: registerStage,
   makeShaderWithData: makeShaderWithData,
