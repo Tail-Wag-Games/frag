@@ -55,7 +55,7 @@ type
   StageState = distinct uint32
 
   Stage = object
-    name: cstring
+    name: array[32, char]
     nameHash: Hash
     state: StageState
     parent: GfxStage
@@ -262,55 +262,55 @@ proc onReloadShader(handle: AssetHandle; prevAsset: Asset) {.cdecl.} =
 proc onReleaseShader(asset: Asset) {.cdecl.} =
   discard
 
-proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8]): int =
+proc runBeginDefaultPassCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runBeginPassCb(buff: ptr UncheckedArray[uint8]): int =
+proc runBeginPassCb(buff: var ptr UncheckedArray[uint8]): int =
+  buff += 32
+
+proc runApplyViewportCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runApplyViewportCb(buff: ptr UncheckedArray[uint8]): int =
+proc runApplyScissorRectCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runApplyScissorRectCb(buff: ptr UncheckedArray[uint8]): int =
+proc runApplyPipelineCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8]): int =
+proc runApplyBindingsCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8]): int =
+proc runApplyUniformsCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8]): int =
+proc runDrawCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runDrawCb(buff: ptr UncheckedArray[uint8]): int =
+proc runDispatchCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runDispatchCb(buff: ptr UncheckedArray[uint8]): int =
+proc runEndPassCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runEndPassCb(buff: ptr UncheckedArray[uint8]): int =
+proc runUpdateBufferCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runUpdateBufferCb(buff: ptr UncheckedArray[uint8]): int =
+proc runUpdateImageCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runUpdateImageCb(buff: ptr UncheckedArray[uint8]): int =
+proc runAppendBufferCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runAppendBufferCb(buff: ptr UncheckedArray[uint8]): int =
+proc runBeginProfileSampleCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8]): int =
+proc runEndProfileSampleCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runEndProfileSampleCb(buff: ptr UncheckedArray[uint8]): int =
+proc runBeginStageCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
-proc runBeginStageCb(buff: ptr UncheckedArray[uint8]): int =
-  discard
-
-proc runFinishStageCb(buff: ptr UncheckedArray[uint8]): int =
+proc runFinishStageCb(buff: var ptr UncheckedArray[uint8]): int =
   discard
 
 const runCommandCallbacks = [
@@ -345,7 +345,7 @@ proc initParamsbuff(cb: ptr CommandBuffer; size: int;
 
     result = addr(cb.paramsBuffer[currentLen])
 
-proc recordBeginStage(name: cstring) =
+proc recordBeginStage(name: cstring; nameSize: int) =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
 
   assert(bool(cb.runningStage.id), "draw related calls must come between begin_stage and end_stage")
@@ -384,10 +384,10 @@ proc beginStage(stage: GfxStage): bool {.cdecl.} =
     stg.state = ssSubmitting
     cb.runningStage = stage
     cb.stageOrder = stg.order
-    stageName = stg.name
+    stageName = cast[cstring](addr(stg.name[0]))
     release(ctx.stageLock)
 
-    recordBeginStage(stg.name)
+    recordBeginStage(cast[cstring](addr(stg.name[0])), len(stg.name))
 
     result = true
 
@@ -470,7 +470,7 @@ proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
         r = addr(refs[i])
         cb = addr(cmds[r.cmdBufferIdx])
       
-      discard runCommandCallbacks[int(r.cmd)](cast[ptr UncheckedArray[uint8]](addr(cb.paramsBuffer[r.paramsOffset])))
+      discard runCommandCallbacks[int(r.cmd)](cast[var ptr UncheckedArray[uint8]](addr(cb.paramsBuffer[r.paramsOffset])))
   
   for i in 0 ..< cmdBufferCount:
     setLen(cmds[i].paramsBuffer, 0)
@@ -513,9 +513,9 @@ proc registerStage(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.} =
     nameHash: hash(name),
     parent: parentStage,
     enabled: true,
-    singleEnabled: true,
-    name: name
+    singleEnabled: true
   )
+  copyStr(stage.name, name)
 
   result.id = toId(ctx.stages.len())
 
