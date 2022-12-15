@@ -310,7 +310,7 @@ proc runEndProfileSampleCb(buff: ptr UncheckedArray[uint8]): int =
 proc runBeginStageCb(buff: ptr UncheckedArray[uint8]): int =
   discard
 
-proc runEndStageCb(buff: ptr UncheckedArray[uint8]): int =
+proc runFinishStageCb(buff: ptr UncheckedArray[uint8]): int =
   discard
 
 const runCommandCallbacks = [
@@ -330,7 +330,7 @@ const runCommandCallbacks = [
     runBeginProfileSampleCb,
     runEndProfileSampleCb,
     runBeginStageCb,
-    runEndStageCb
+    runFinishStageCb
   ]
 
 proc initParamsbuff(cb: ptr CommandBuffer; size: int;
@@ -344,7 +344,6 @@ proc initParamsbuff(cb: ptr CommandBuffer; size: int;
     offset = addr(cb.paramsBuffer[currentLen]) - addr(cb.paramsBuffer[0])
 
     result = addr(cb.paramsBuffer[currentLen])
-
 
 proc recordBeginStage(name: cstring) =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
@@ -365,22 +364,6 @@ proc recordBeginStage(name: cstring) =
   add(cb.refs, r)
   inc(cb.cmdIdx)
   copyMem(buff, name, len(name))
-
-proc recordEndStage(name: cstring) =
-  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
-
-  assert(bool(cb.runningStage.id), "draw related calls must come between begin_stage and end_stage")
-  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
-
-  let r = CommandBufferRef(
-    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
-    cmdBufferIdx: cb.index,
-    cmd: cmdStagePop,
-    paramsOffset: len(cb.paramsBuffer)
-  )
-
-  add(cb.refs, r)
-  inc(cb.cmdIdx)
 
 proc beginStage(stage: GfxStage): bool {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
@@ -407,6 +390,37 @@ proc beginStage(stage: GfxStage): bool {.cdecl.} =
     recordBeginStage(stg.name)
 
     result = true
+
+proc recordFinishStage() =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "draw related calls must come between begin_stage and end_stage")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdStagePop,
+    paramsOffset: len(cb.paramsBuffer)
+  )
+
+  add(cb.refs, r)
+
+  inc(cb.cmdIdx)
+
+proc finishStage() {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+
+  acquire(ctx.stageLock)
+  let stage = addr(ctx.stages[toIndex(cb.runningStage.id)])
+  assert(stage.state == ssSubmitting, "must call `begin` on this stage first")
+  stage.state = ssDone
+  release(ctx.stageLock)
+
+  recordFinishStage()
+  cb.runningStage.id = 0
+
 
 proc validateStageDependencies() =
   acquire(ctx.stageLock)
@@ -464,7 +478,7 @@ proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
   
   result = cmdCount
 
-proc executeCommandBuffers() =
+proc executeCommandBuffers*() =
   validateStageDependencies()
 
   discard executeCommandBuffer(ctx.cmdBuffersRender)
@@ -743,6 +757,7 @@ proc shutdown*() =
 gfxApi = GfxApi(
   staged: GfxDrawApi(
     begin: beginStage,
+    finish: finishStage
   ),
   makeShader: sgfx.c_makeShader,
   registerStage: registerStage,

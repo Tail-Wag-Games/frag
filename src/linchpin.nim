@@ -49,13 +49,9 @@ proc frame*() =
   vfs.update()
   
   plugin.update()
-  
-  var g = passAction.colors[0].value.g + 0.01
-  passAction.colors[0].value.g = if g > 1.0: 0.0 else: g
-  beginDefaultPass(passAction, sapp.width(), sapp.height())
-  endPass()
-  commit()
 
+  gfx.executeCommandBuffers()
+  
 proc shutdown*() =
   plugin.shutdown()
   gfx.shutdown()

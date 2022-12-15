@@ -111,6 +111,7 @@ type
 
   GfxDrawApi* = object
     begin*: proc(stage: GfxStage): bool {.cdecl.}
+    finish*: proc() {.cdecl.}
 
   GfxApi* = object
     staged*: GfxDrawApi
