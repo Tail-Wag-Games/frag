@@ -3,15 +3,15 @@ import std/math,
 
 type
   Mix4* = enum
-    m4X
-    m4Y
-    m4Z
-    m4W
+    m4X = 0
+    m4Y = 1
+    m4Z = 2
+    m4W = 3
 
-    m4A
-    m4B
-    m4C
-    m4D
+    m4A = 4
+    m4B = 5
+    m4C = 6
+    m4D = 7
 
   Scalarf* = object
     value: M128
@@ -44,6 +44,9 @@ type
     y*: float32
     z*: float32
     w*: float32
+  
+  Float4x4f* = object
+    m* {.align: 16}: array[4, array[4, float32]]
 
   Rectangle* = object
     xmin*, ymin*: float32
@@ -56,11 +59,14 @@ const
   PiDivOneEighty* = 0.01745329251994329576923690768489'f32
   Pi* = 3.141592653589793238462643383279502884'f32
 
-template allTrue2Mask4f(inputMask, output) =
-  result = (mm_movemask_ps(inputMask) and 0x3) == 0x3
+template allTrue2Mask4f(inputMask, output): untyped =
+  (mm_movemask_ps(inputMask) and 0x3) == 0x3
 
 template selectVector4f(mask, ifTrue, ifFalse): untyped =
   mm_or_ps(mm_andnot_ps(mask, ifFalse), mm_and_ps(ifTrue, mask))
+
+template mulvAddVector(v0, v1, v2): untyped =
+  mm_add_ps(mm_mul_ps(v0, v1), v2)
 
 when defined vcc:
   proc isMixXyzw*(arg: Mix4): bool {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
@@ -224,9 +230,32 @@ when defined vcc:
     if isMixAbcd(comp0) and isMixAbcd(comp1) and isMixAbcd(comp2) and isMixAbcd(comp3):
       result = mm_shuffle_ps(b, b, MM_SHUFFLE(int32(comp3) mod 4, int32(comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
 
+    if isMixXyzw(comp0) and isMixXyzw(comp1) and isMixAbcd(comp2) and isMixAbcd(comp3):
+      result = mm_shuffle_ps(a, b, MM_SHUFFLE(int32(comp3) mod 4, int32(comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
+    
+    if isMixAbcd(comp0) and isMixAbcd(comp1) and isMixXyzw(comp2) and isMixXyzw(comp3):
+      result = mm_shuffle_ps(b, a, MM_SHUFFLE(int32(comp3) mod 4, int32(comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
+
+    if comp0 == m4X and comp1 == m4A and comp2 == m4Y and comp3 == m4B:
+      result = mm_unpacklo_ps(a, b)
+    
+    if comp0 == m4A and comp1 == m4X and comp2 == m4B and comp3 == m4Y:
+      result = mm_unpacklo_ps(b, a)
+    
+    if comp0 == m4Z and comp1 == m4C and comp2 == m4W and comp3 == m4D:
+      result = mm_unpackhi_ps(a, b)
+    
+    if comp0 == m4C and comp1 == m4Z and comp2 == m4D and comp3 == m4W:
+      result = mm_unpackhi_ps(b, a)
 
   proc dupXVector*(input: Vector4f): Vector4f  {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     mixVector[m4X, m4X, m4X, m4X](input, input)
+  
+  proc dupYVector*(input: Vector4f): Vector4f  {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    mixVector[m4Y, m4Y, m4Y, m4Y](input, input)
+  
+  proc dupZVector*(input: Vector4f): Vector4f  {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    mixVector[m4Z, m4Z, m4Z, m4Z](input, input)
 
   proc absVector*(input: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     let absMask = mm_set_epi32(0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32)
@@ -241,11 +270,17 @@ when defined vcc:
 
   proc mulVector(lhs, rhs: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_mul_ps(lhs, rhs)
+  
+  proc mulAddVector*(v0, v1, v2: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result = mulvAddVector(v0, v1, v2)
+  
+  proc addVector*(lhs, rhs: Vector4f): Vector4f{.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result = mm_add_ps(lhs, rhs)
 
   proc allLessEqualVector3(lhs, rhs: Vector4f): bool {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     let mask = mm_cmple_ps(lhs, rhs)
 
-    allTrue2Mask4f(mask, result)
+    result = allTrue2Mask4f(mask, result)
 
   proc allNearEqualVector3(lhs, rhs: Vector4f;
       threshold: float32 = 00001'f32): bool {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
@@ -344,7 +379,32 @@ when defined vcc:
     result = perspective(width, height, nearZ, farZ, oglNdc)
 
   proc mulMatrix*(lhs, rhs: Matrix4x4f): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
-    let tmp = mulVector(dupXVector(lhs.xAxis), rhs.xAxis)
+    var tmp = mulVector(dupXVector(lhs.xAxis), rhs.xAxis)
+    tmp = mulAddVector(dupYVector(lhs.xAxis), rhs.yAxis, tmp)
+    tmp = mulAddVector(dupZVector(lhs.xAxis), rhs.zAxis, tmp)
+
+    let xAxis = tmp
+    tmp = mulVector(dupXVector(lhs.yAxis), rhs.xAxis)
+    tmp = mulAddVector(dupYVector(lhs.yAxis), rhs.yAxis, tmp)
+    tmp = mulAddVector(dupZVector(lhs.yAxis), rhs.zAxis, tmp)
+
+    let yAxis = tmp
+    tmp = mulVector(dupXVector(lhs.zAxis), rhs.xAxis)
+    tmp = mulAddVector(dupYVector(lhs.zAxis), rhs.yAxis, tmp)
+    tmp = mulAddVector(dupZVector(lhs.zAxis), rhs.zAxis, tmp)
+
+    let zAxis = tmp
+    tmp = mulVector(dupXVector(lhs.wAxis), rhs.xAxis)
+    tmp = mulAddVector(dupYVector(lhs.wAxis), rhs.yAxis, tmp)
+    tmp = mulAddVector(dupZVector(lhs.wAxis), rhs.zAxis, tmp)
+
+    let wAxis = addVector(rhs.wAxis, tmp)
+    result = Matrix4x4f(
+      xAxis: xAxis,
+      yAxis: yAxis,
+      zAxis: zAxis,
+      wAxis: wAxis
+    )
 
 else:
   proc setQuat(x, y, z, w: float32): Quatf {.codegendecl: "__attribute__((always_inline)) inline $# $#$#", inline.} =

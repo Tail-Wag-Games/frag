@@ -12,8 +12,9 @@ type
   Config* = object
     appName*: cstring
     appTitle*: cstring
+    pluginPath*: cstring
 
-    plugins: array[MaxPlugins, cstring]
+    plugins*: array[MaxPlugins, cstring]
 
     windowWidth*: int32
     windowHeight*: int32
@@ -50,7 +51,10 @@ type
     name*: cstring
 
   PluginApi* = object
+    load*: proc(name: cstring): bool {.cdecl.}
+    injectApi*: proc(name: cstring; version: uint32; api: pointer) {.cdecl.}
     getApi*: proc(api: ApiType): pointer {.cdecl.}
+    getApiByName*: proc(name: cstring; version: uint32): pointer {.cdecl.}
 
   AppEvent* = object
 

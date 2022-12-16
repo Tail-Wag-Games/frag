@@ -13,6 +13,7 @@ var
   ctx: AppState
 
   defaultName: cstring
+  defaultPluginPath: cstring
   defaultTitle: cstring
 
 when defined(Windows):
@@ -38,6 +39,17 @@ proc name(): cstring {.cdecl.} =
 
 proc init() {.cdecl.} =
   linchpin.init(ctx.cfg)
+
+  var numPlugins = 0
+  for i in 0 ..< MaxPlugins:
+    if isNil(ctx.cfg.plugins[i]) or not bool(ctx.cfg.plugins[i][0]):
+      break
+
+    if not pluginApi.load(ctx.cfg.plugins[i]):
+      quit(QuitFailure)
+    
+    inc(numPlugins)
+
 
   plugin.loadAbs(cast[cstring](addr ctx.appFilepath[0]), true)
 
@@ -93,6 +105,7 @@ proc run*() =
     appPluginMain(cfg)
 
     saveCfgString(defaultName, cfg.appName)
+    saveCfgString(defaultPluginPath, cfg.pluginPath)
     saveCfgString(defaultTitle, cfg.appTitle)
 
     if true:

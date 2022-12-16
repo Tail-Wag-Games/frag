@@ -43,7 +43,7 @@ proc init*(cfg: var Config) =
 
   gfx.init()
 
-  plugin.init()
+  plugin.init(cfg.pluginPath)
 
 proc frame*() =
   vfs.update()
