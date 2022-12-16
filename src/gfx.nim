@@ -483,9 +483,6 @@ proc finishPass() {.cdecl.} =
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var offset = 0
-  var buff = initParamsBuff(cb, sizeof(PassAction) + sizeof(int32) * 2, offset)
-
   let r = CommandBufferRef(
     key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
     cmdBufferIdx: cb.index,
