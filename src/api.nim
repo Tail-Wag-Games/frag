@@ -113,6 +113,9 @@ type
     begin*: proc(stage: GfxStage): bool {.cdecl.}
     finish*: proc() {.cdecl.}
 
+    beginDefaultPass*: proc(passAction: ptr PassAction; width, height: int32) {.cdecl.}
+    finishPass*: proc() {.cdecl.}
+
   GfxApi* = object
     staged*: GfxDrawApi
     makeShader*: proc(desc: ptr ShaderDesc): sgfx.Shader {.cdecl.}

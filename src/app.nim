@@ -115,5 +115,7 @@ proc run*() =
 
 appApi = AppApi(
   name: name,
-  windowSize: windowSize
+  windowSize: windowSize,
+  width: cWidth,
+  height: cHeight
 )

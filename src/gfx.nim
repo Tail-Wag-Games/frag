@@ -265,7 +265,18 @@ proc onReleaseShader(asset: Asset) {.cdecl.} =
   discard
 
 proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+  var curOffset = offset
+
+  let passAction = cast[ptr PassAction](addr(buff[curOffset]))
+  curOffset += sizeof(PassAction)
+  let width = cast[ptr int32](addr(buff[curOffset]))
+  curOffset += sizeof(int32)
+  let height = cast[ptr int32](addr(buff[curOffset]))
+  curOffset += sizeof(int32)
+
+  cBeginDefaultPass(passAction, width[], height[])
+
+  result = (buff: buff, offset: curOffset)
 
 proc runBeginPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   # echo "running begin pass callback!"
@@ -298,8 +309,9 @@ proc runDrawCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr Un
 proc runDispatchCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runEndPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+proc runFinishPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+  cEndPass()
+  result = (buff: buff, offset: offset)
 
 proc runUpdateBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
@@ -340,7 +352,7 @@ const runCommandCallbacks = [
     runApplyUniformsCb,
     runDrawCb,
     runDispatchCb,
-    runEndPassCb,
+    runFinishPassCb,
     runUpdateBufferCb,
     runUpdateImageCb,
     runAppendBufferCb,
@@ -440,6 +452,49 @@ proc finishStage() {.cdecl.} =
   recordFinishStage()
   cb.runningStage.id = 0
 
+proc beginDefaultPass(passAction: ptr PassAction; width, height: int32) {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var offset = 0
+  var buff = initParamsBuff(cb, sizeof(PassAction) + sizeof(int32) * 2, offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdBeginDefaultPass,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  copyMem(addr(buff[0]), passAction, sizeof(passAction[]))
+  buff += sizeof(passAction[])
+  cast[ptr int](buff)[] = width
+  buff += sizeof(int32)
+  cast[ptr int](buff)[] = height
+
+proc finishPass() {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var offset = 0
+  var buff = initParamsBuff(cb, sizeof(PassAction) + sizeof(int32) * 2, offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdFinishPass,
+    paramsOffset: len(cb.paramsBuffer)
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
 
 proc validateStageDependencies() =
   acquire(ctx.stageLock)
@@ -758,7 +813,7 @@ proc initCommandBuffers() =
     ctx.cmdBuffersRender[i].index = i
 
 proc init*() =
-  sgfx.setup(sgfx.Desc(context: sglue.context()))
+  sgfx.setup(Desc(context: sglue.context()))
 
   initLock(ctx.stageLock)
 
@@ -774,9 +829,11 @@ proc shutdown*() =
 gfxApi = GfxApi(
   staged: GfxDrawApi(
     begin: beginStage,
-    finish: finishStage
+    finish: finishStage,
+    beginDefaultPass: beginDefaultPass,
+    finishPass: finishPass
   ),
-  makeShader: sgfx.c_makeShader,
+  makeShader: cMakeShader,
   registerStage: registerStage,
   makeShaderWithData: makeShaderWithData,
 )
