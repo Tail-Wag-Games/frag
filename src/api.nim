@@ -118,6 +118,7 @@ type
 
   GfxApi* = object
     staged*: GfxDrawApi
+    glFamily*: proc(): bool {.cdecl.}
     makeShader*: proc(desc: ptr ShaderDesc): sgfx.Shader {.cdecl.}
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[
@@ -194,6 +195,8 @@ type
     yaw*: float32
 
   CameraApi* = object
+    perspective*: proc(cam: ptr Camera; proj: ptr Matrix4x4f) {.cdecl.}
+    view*: proc(cam: ptr Camera; view: ptr Matrix4x4f) {.cdecl.}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle;
         fnear, ffar: float32) {.cdecl.}
     lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Float3f) {.cdecl.}

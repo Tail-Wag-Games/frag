@@ -68,7 +68,8 @@ type
 
   Command = distinct uint32
 
-  RunCommandCallback = proc(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int]
+  RunCommandCallback = proc(buff: ptr UncheckedArray[uint8],
+      offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int]
 
   CommandBufferRef = object
     key: uint32
@@ -83,7 +84,7 @@ type
     index: int
     stageOrder: uint16
     cmdIdx: uint16
-  
+
   StreamBuffer = object
     buf: Buffer
     offset: Atomic[uint32]
@@ -264,7 +265,8 @@ proc onReloadShader(handle: AssetHandle; prevAsset: Asset) {.cdecl.} =
 proc onReleaseShader(asset: Asset) {.cdecl.} =
   discard
 
-proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   var curOffset = offset
 
   let passAction = cast[ptr PassAction](addr(buff[curOffset]))
@@ -278,7 +280,8 @@ proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
   result = (buff: buff, offset: curOffset)
 
-proc runBeginPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runBeginPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   # echo "running begin pass callback!"
   # let passAction = cast[ptr PassAction](buff)
   # buff += sizeof(PassAction)
@@ -288,47 +291,61 @@ proc runBeginPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: p
   # result = (buff, 0)
   discard
 
-proc runApplyViewportCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runApplyViewportCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runApplyScissorRectCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runApplyScissorRectCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runDrawCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runDrawCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runDispatchCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runDispatchCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runFinishPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runFinishPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   cEndPass()
   result = (buff: buff, offset: offset)
 
-proc runUpdateBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runUpdateBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runUpdateImageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runUpdateImageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8],
+    offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runEndProfileSampleCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runEndProfileSampleCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runBeginStageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runBeginStageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   var curOffset = offset
 
   let name = cast[cstring](addr(buff[curOffset]))
@@ -338,7 +355,8 @@ proc runBeginStageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: 
 
   result = (buff: buff, offset: curOffset)
 
-proc runFinishStageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+proc runFinishStageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
   ctx.currentStageName[0] = '\0'
   result = (buff: buff, offset: offset)
 
@@ -452,7 +470,8 @@ proc finishStage() {.cdecl.} =
   recordFinishStage()
   cb.runningStage.id = 0
 
-proc beginDefaultPass(passAction: ptr PassAction; width, height: int32) {.cdecl.} =
+proc beginDefaultPass(passAction: ptr PassAction; width,
+    height: int32) {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
 
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
@@ -519,7 +538,7 @@ proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
     cmdCount += len(cb.refs)
 
   if bool(cmdCount):
-    var 
+    var
       refs = newSeq[CommandbufferRef](cmdCount)
       curRefCount = 0
 
@@ -538,13 +557,14 @@ proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
       let
         r = addr(refs[i])
         cb = addr(cmds[r.cmdBufferIdx])
-      
-      discard runCommandCallbacks[int(r.cmd)](cast[ptr UncheckedArray[uint8]](addr(cb.paramsBuffer[0])), r.paramsOffset)
-  
+
+      discard runCommandCallbacks[int(r.cmd)](cast[ptr UncheckedArray[uint8]](
+          addr(cb.paramsBuffer[0])), r.paramsOffset)
+
   for i in 0 ..< cmdBufferCount:
     setLen(cmds[i].paramsBuffer, 0)
     cmds[i].cmdIdx = 0
-  
+
   result = cmdCount
 
 proc executeCommandBuffers*() =
@@ -555,7 +575,7 @@ proc executeCommandBuffers*() =
 
   for i in 0 ..< len(ctx.stages):
     ctx.stages[i].state = ssNone
-  
+
   for i in 0 ..< len(ctx.streamBuffers):
     store(ctx.streamBuffers[i].offset, 0)
 
@@ -782,6 +802,10 @@ proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
         fsData, int32(fsDataSize), addr(result.info.nameHandle))
   )
 
+proc glFamily*(): bool {.cdecl.} =
+  let backend = queryBackend()
+  result = backend == backendGlcore33 or backend == backendGles2 or backend == backendGles3
+
 proc initShaders*() =
   assetApi.registerAssetType(
     "shader",
@@ -830,6 +854,7 @@ gfxApi = GfxApi(
     beginDefaultPass: beginDefaultPass,
     finishPass: finishPass
   ),
+  glFamily: glFamily,
   makeShader: cMakeShader,
   registerStage: registerStage,
   makeShaderWithData: makeShaderWithData,
