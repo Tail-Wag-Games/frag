@@ -68,7 +68,7 @@ type
 
   Command = distinct uint32
 
-  RunCommandCallback = proc(buff: ptr UncheckedArray[uint8]): int
+  RunCommandCallback = proc(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int]
 
   CommandBufferRef = object
     key: uint32
@@ -97,6 +97,8 @@ type
 
     streamBuffers: seq[StreamBuffer]
 
+    currentStageName: array[32, char]
+
 
 const
   MaxStages = 1024
@@ -118,12 +120,12 @@ const
   cmdApplyUniforms = Command(6)
   cmdDraw = Command(7)
   cmdDispatch = Command(8)
-  cmdEndPass = Command(9)
+  cmdFinishPass = Command(9)
   cmdUpdateBuffer = Command(10)
   cmdUpdateImage = Command(11)
   cmdAppendBuffer = Command(12)
   cmdBeginProfile = Command(13)
-  cmdEndProfile = Command(14)
+  cmdFinishProfile = Command(14)
   cmdStagePush = Command(15)
   cmdStagePop = Command(16)
   cmdCount = Command(17)
@@ -262,56 +264,71 @@ proc onReloadShader(handle: AssetHandle; prevAsset: Asset) {.cdecl.} =
 proc onReleaseShader(asset: Asset) {.cdecl.} =
   discard
 
-proc runBeginDefaultPassCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runBeginPassCb(buff: var ptr UncheckedArray[uint8]): int =
-  buff += 32
-
-proc runApplyViewportCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runBeginPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+  # echo "running begin pass callback!"
+  # let passAction = cast[ptr PassAction](buff)
+  # buff += sizeof(PassAction)
+  # let pass = cast[ptr Pass](buff)[]
+  # buff += sizeof(Pass)
+  # sgfx.cBeginPass(pass, passAction)
+  # result = (buff, 0)
   discard
 
-proc runApplyScissorRectCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runApplyViewportCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runApplyPipelineCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runApplyScissorRectCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runApplyBindingsCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runApplyUniformsCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runDrawCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runDispatchCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runDrawCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runEndPassCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runDispatchCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runUpdateBufferCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runEndPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runUpdateImageCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runUpdateBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runAppendBufferCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runUpdateImageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runBeginProfileSampleCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runEndProfileSampleCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runBeginStageCb(buff: var ptr UncheckedArray[uint8]): int =
+proc runEndProfileSampleCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
 
-proc runFinishStageCb(buff: var ptr UncheckedArray[uint8]): int =
-  discard
+proc runBeginStageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+  var curOffset = offset
+
+  let name = cast[cstring](addr(buff[curOffset]))
+  curOffset += 32
+
+  discard copyStr(ctx.currentStageName, name)
+
+  result = (buff: buff, offset: curOffset)
+
+proc runFinishStageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
+  ctx.currentStageName[0] = '\0'
+  result = (buff: buff, offset: offset)
 
 const runCommandCallbacks = [
     runBeginDefaultPassCb,
@@ -333,19 +350,21 @@ const runCommandCallbacks = [
     runFinishStageCb
   ]
 
-proc initParamsbuff(cb: ptr CommandBuffer; size: int;
+proc initParamsBuff(cb: ptr CommandBuffer; size: int;
     offset: var int): ptr uint8 =
   block outer:
     if size == 0:
       break outer
 
     let currentLen = len(cb.paramsBuffer)
-    setLen(cb.paramsBuffer, alignMask(size, NaturalAlignment - 1))
-    offset = addr(cb.paramsBuffer[currentLen]) - addr(cb.paramsBuffer[0])
+    setLen(cb.paramsBuffer, currentLen + int(alignMask(size, NaturalAlignment - 1)))
+    offset = int(addr(cb.paramsBuffer[currentLen]) - addr(cb.paramsBuffer[0]))
 
     result = addr(cb.paramsBuffer[currentLen])
 
 proc recordBeginStage(name: cstring; nameSize: int) =
+  assert(nameSize == 32)
+
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
 
   assert(bool(cb.runningStage.id), "draw related calls must come between begin_stage and end_stage")
@@ -363,7 +382,7 @@ proc recordBeginStage(name: cstring; nameSize: int) =
 
   add(cb.refs, r)
   inc(cb.cmdIdx)
-  copyMem(buff, name, len(name))
+  copyMem(addr(buff[0]), name, nameSize)
 
 proc beginStage(stage: GfxStage): bool {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
@@ -439,9 +458,7 @@ proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
   # static:
   #   assert(sizeof())
 
-  var
-    cmdCount = 0
-    curRefCount = 0
+  var cmdCount = 0
   let cmdBufferCount = coreApi.numJobThreads()
 
   for i in 0 ..< cmdBufferCount:
@@ -450,18 +467,18 @@ proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
     cmdCount += len(cb.refs)
 
   if bool(cmdCount):
-    var refs = newSeq[CommandbufferRef](cmdCount)
-    let initialRefs = refs
+    var 
+      refs = newSeq[CommandbufferRef](cmdCount)
+      curRefCount = 0
+
     for i in 0 ..< cmdBufferCount:
       let
         cb = addr(cmds[i])
         refCount = len(cb.refs)
       if bool(refCount):
-        insert(refs, cb.refs, curRefCount)
+        refs[curRefCount..(curRefCount + refCount - 1)] = cb.refs
         curRefCount += refCount
         setLen(cb.refs, 0)
-
-    refs = initialRefs
 
     timSort(refs)
 
@@ -470,7 +487,7 @@ proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
         r = addr(refs[i])
         cb = addr(cmds[r.cmdBufferIdx])
       
-      discard runCommandCallbacks[int(r.cmd)](cast[var ptr UncheckedArray[uint8]](addr(cb.paramsBuffer[r.paramsOffset])))
+      discard runCommandCallbacks[int(r.cmd)](cast[ptr UncheckedArray[uint8]](addr(cb.paramsBuffer[0])), r.paramsOffset)
   
   for i in 0 ..< cmdBufferCount:
     setLen(cmds[i].paramsBuffer, 0)
@@ -672,8 +689,8 @@ proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
 
     if stage.refl.stage == ssVs:
       for a in 0 ..< len(vsRefl.inputs):
-        desc.attrs[a].name = vsRefl.inputs[a].name
-        desc.attrs[a].semName = vsRefl.inputs[a].semantic
+        desc.attrs[a].name = cstring(vsRefl.inputs[a].name)
+        desc.attrs[a].semName = cstring(vsRefl.inputs[a].semantic)
         desc.attrs[a].semIndex = int32(vsRefl.inputs[a].semanticIndex)
 
     for iub in 0 ..< len(stage.refl.uniformBuffers):
