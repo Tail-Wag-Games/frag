@@ -46,7 +46,7 @@ proc injectApi(name: cstring; version: uint32; api: pointer) {.cdecl.} =
 
   if apiIdx == -1:
     add(ctx.injected, InjectedApi(
-      name: nil,
+      name: name,
       version: version,
       api: api
     ))
@@ -75,29 +75,49 @@ proc init*(pluginPath: cstring) =
         # result = false
         break outer
 
-proc loadAbs*(filepath: cstring; entry: bool) =
-  var handle: PluginHandle
-  handle.data.plugin.api = addr pluginApi
+proc loadAbs*(filepath: cstring; entry: bool, entryDeps: openArray[cstring]; numEntryDeps: int32) =
+  block outer:
+    var handle: PluginHandle
+    handle.data.plugin.api = addr pluginApi
 
-  var dll: pointer
-  if not entry:
-    discard
-  else:
-    dll = getAppModule()
-    handle.info.name = appApi.name()
+    var dll: pointer
+    if not entry:
+      dll = loadLib($filepath)
+      if isNil(dll):
+        logError("plugin load failed: $# - dlerr($#)", filepath, "")
+        break outer
+      
+      let getPluginInfo = cast[PluginInfoCb](symAddr(dll, "fragPluginInfo"))
+      if isNil(getPluginInfo):
+        logError("plugin missing `fragPluginInfo` symbol: $#", filepath)
+        break outer
 
-  handle.filepath.copyStr(filepath)
+      getPluginInfo(addr(handle.info))
+    else:
+      dll = getAppModule()
+      let appName = appApi.name()
+      handle.info.name[0..high(appName)] = toOpenArray(appName, 0, high(appName))
 
-  unloadLib(dll)
+    copyStr(handle.filepath, filepath)
 
-  ctx.plugins.add(handle)
-  ctx.pluginUpdateOrder.add(ctx.plugins.len() - 1)
+    let 
+      numDeps = if entry: numEntryDeps else: handle.info.numDeps
+      deps = if entry: cast[ptr UncheckedArray[cstring]](entryDeps) else: handle.info.deps
+    
+    if numDeps > 0 and not isNil(deps):
+      discard
+
+    unloadLib(dll)
+
+    ctx.plugins.add(handle)
+    ctx.pluginUpdateOrder.add(ctx.plugins.len() - 1)
 
 proc load*(name: cstring): bool {.cdecl.} =
   assert(not ctx.loaded, "unable to load additional plugins after `initPlugins` has been invoked")
 
   let filepath = cstring(joinPath(ctx.pluginPath, $name) & ".dll")
-  loadAbs(filepath, false)
+  echo filepath
+  loadAbs(filepath, false, [], 0)
   result = true
 
 proc initPlugins*() =

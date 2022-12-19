@@ -12,9 +12,10 @@ type
 var 
   ctx: AppState
 
-  defaultName: cstring
-  defaultPluginPath: cstring
-  defaultTitle: cstring
+  defaultName: array[64, char]
+  defaultTitle: array[64, char]
+  defaultPluginPath: array[256, char]
+  defaultPlugins: array[MaxPlugins, array[32, char]]
 
 when defined(Windows):
   import winim/lean
@@ -30,6 +31,12 @@ proc saveCfgString(cacheStr: cstring, str: var cstring) =
   else:
     str = cacheStr
 
+proc saveCfgString(cacheStr: openArray[char], str: var cstring) = 
+  if str != nil:
+    copyMem(addr cacheStr[0], addr str[0], sizeof(str))
+  
+  str = cast[cstring](addr(cacheStr[0]))
+
 proc windowSize(size: ptr Float2f) {.cdecl.} =
   assert size != nil
   size[] = ctx.windowSize
@@ -40,7 +47,7 @@ proc name(): cstring {.cdecl.} =
 proc init() {.cdecl.} =
   linchpin.init(ctx.cfg)
 
-  var numPlugins = 0
+  var numPlugins = 0'i32
   for i in 0 ..< MaxPlugins:
     if isNil(ctx.cfg.plugins[i]) or not bool(ctx.cfg.plugins[i][0]):
       break
@@ -50,8 +57,7 @@ proc init() {.cdecl.} =
     
     inc(numPlugins)
 
-
-  plugin.loadAbs(cast[cstring](addr ctx.appFilepath[0]), true)
+  plugin.loadAbs(cast[cstring](addr ctx.appFilepath[0]), true, ctx.cfg.plugins, numPlugins)
 
   plugin.initPlugins()
 
@@ -93,8 +99,10 @@ proc run*() =
       messageBox(&"application plugin at path: {appFilepath} does not export a procedure named `fragApp`")
       break
 
-    let (_, appFilename, _) = splitFile(appFilepath)
-    defaultName = appFilename.cstring
+    let 
+      (_, sAppFilename, _) = splitFile(appFilepath)
+      appFilename = cstring(sAppFilename)
+    defaultName[0..high(appFilepath)] = toOpenArray(appFilename, 0, high(appFilepath))
     defaultTitle = defaultName
 
     var cfg = Config(
@@ -107,12 +115,16 @@ proc run*() =
     saveCfgString(defaultName, cfg.appName)
     saveCfgString(defaultPluginPath, cfg.pluginPath)
     saveCfgString(defaultTitle, cfg.appTitle)
+    for i in 0 ..< MaxPlugins:
+      if cfg.plugins[i] != nil and len(cfg.plugins[i]) > 0:
+        saveCfgString(defaultPlugins[i], cfg.plugins[i])
 
     if true:
       unloadLib(lib)
     else:
       setAppModule(lib)
 
+    ctx.cfg = cfg
     ctx.appFilepath = appFilepath
     ctx.windowSize = float2f(cfg.windowWidth.float32, cfg.windowHeight.float32)
 

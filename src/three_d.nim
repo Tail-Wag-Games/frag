@@ -7,12 +7,4 @@ type
   ThreeDApi* = object
     debug*: Debug
 
-proc gridXYPlaneCam(spacing, spacingBold, dist: float32; cam: ptr Camera; viewProj: ptr Float4x4f) {.cdecl.} =
-  discard
-
-const
-  threeDApi* = ThreeDApi(
-    debug: Debug(
-      gridXYPlaneCam: gridXYPlaneCam
-    )
-  )
+var threeDApi*: ThreeDApi

@@ -48,7 +48,13 @@ type
   EventHandlerCallback* = proc(e: ptr AppEvent)
 
   PluginInfo* = object
-    name*: cstring
+    version*: uint32
+    deps*: ptr UncheckedArray[cstring]
+    numDeps*: int32
+    name*: array[32, char]
+    desc*: array[256, char]
+  
+  PluginInfoCb* = proc(outInfo: ptr PluginInfo) {.cdecl.}
 
   PluginApi* = object
     load*: proc(name: cstring): bool {.cdecl.}

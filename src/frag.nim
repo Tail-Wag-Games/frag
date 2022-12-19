@@ -1,4 +1,4 @@
-import api
+import api, camera
 
 export api
 

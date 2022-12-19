@@ -4,5 +4,7 @@
 **/*.ilk
 **/*.lib
 **/*.pdb
+*.dll
+*.exp
 *.pdb
 frag.rdbg
