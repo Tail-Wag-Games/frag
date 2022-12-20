@@ -4,6 +4,7 @@ import std/cpuinfo,
 
 type
   CoreContext = object
+    frameIndex: int64
     jobCtx: ptr JobContext
 
     numThreads: int32
@@ -14,6 +15,9 @@ var
   passAction = PassAction(
     colors: [ ColorAttachmentAction( action: actionClear, value: (1, 0, 0, 0)) ]
   )
+
+proc frameIndex(): int64 {.cdecl.} =
+  result = ctx.frameIndex
 
 proc testAndDelJob(j: Job): bool {.cdecl.} =
   assert(ctx.jobCtx != nil)
@@ -51,6 +55,8 @@ proc frame*() =
   plugin.update()
 
   gfx.executeCommandBuffers()
+
+  inc(ctx.frameIndex)
   
 proc shutdown*() =
   plugin.shutdown()
@@ -60,6 +66,7 @@ proc shutdown*() =
   vfs.shutdown()
 
 coreApi = CoreApi(
+  frameIndex: frameIndex,
   testAndDelJob: testAndDelJob,
   numJobThreads: numJobThreads,
   jobThreadIndex: jobThreadIndex

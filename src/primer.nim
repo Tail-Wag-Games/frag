@@ -3,6 +3,12 @@ import times
 template makeFourCC*(a, b, c, d: untyped): untyped =
   (uint32(a) or (uint32(b) shl 8'u32) or (uint32(c) shl 16'u32) or (uint32(d) shl 24'u32))
 
+iterator countup*(a, b, step: float32): float32 =
+  var res = a
+  while res <= b:
+    yield res
+    res += step
+
 proc copyStr*[N: static int](dst: var array[N, char]; src: cstring): ptr char {.discardable.} =
   let
     len = src.len()

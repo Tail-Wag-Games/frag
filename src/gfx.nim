@@ -477,8 +477,9 @@ proc beginDefaultPass(passAction: ptr PassAction; width,
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var offset = 0
-  var buff = initParamsBuff(cb, sizeof(PassAction) + sizeof(int32) * 2, offset)
+  var 
+    offset = 0
+    buff = initParamsBuff(cb, sizeof(PassAction) + sizeof(int32) * 2, offset)
 
   let r = CommandBufferRef(
     key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
@@ -496,6 +497,30 @@ proc beginDefaultPass(passAction: ptr PassAction; width,
   buff += sizeof(int32)
   cast[ptr int](buff)[] = height
 
+proc applyPipeline(pip: Pipeline) {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var 
+    offset = 0
+    buff = initParamsBuff(cb, sizeof(Pipeline), offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdApplyPipeline,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  cast[ptr Pipeline](buff)[] = pip
+  
+  setPipelineUsedFrame(pip.id, coreApi.frameIndex())
+
 proc finishPass() {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
 
@@ -511,6 +536,52 @@ proc finishPass() {.cdecl.} =
 
   add(cb.refs, r)
   inc(cb.cmdIdx)
+
+proc appendBuffer(buf: Buffer; data: pointer; dataSize: int32): int32 {.cdecl.} =
+  var idx = -1
+  for i in 0 ..< len(ctx.streamBuffers):
+    if ctx.streamBuffers[i].buf.id == buf.id:
+      idx = i
+      break
+  
+  assert(idx != -1, "buffer must be strea and not destroyed during render")
+  let sBuff = addr((ctx.streamBuffers[idx]))
+  assert(load(sBuff.offset) + uint32(dataSize) <= uint32(sBuff.size))
+  
+  let 
+    streamOffset = fetchAdd(sBuff.offset, uint32(dataSize))
+    cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+  
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var 
+    offset = 0
+    buff = initParamsBuff(cb, dataSize + sizeof(int32) * 3 + sizeof(Buffer), offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdAppendBuffer,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  cast[ptr int32](buff)[] = int32(idx)
+  buff += sizeof(int32)
+  cast[ptr Buffer](buff)[] = buf
+  buff += sizeof(Buffer)
+  cast[ptr uint32](buff)[] = streamOffset
+  buff += sizeof(int32)
+  cast[ptr int32](buff)[] = dataSize
+  buff += sizeof(int32)
+  copyMem(addr(buff[0]), data, dataSize)
+
+  setBufferUsedFrame(buf.id, coreApi.frameIndex())
+
+  result = int32(streamOffset)
 
 proc validateStageDependencies() =
   acquire(ctx.stageLock)
@@ -852,7 +923,9 @@ gfxApi = GfxApi(
     begin: beginStage,
     finish: finishStage,
     beginDefaultPass: beginDefaultPass,
-    finishPass: finishPass
+    applyPipeline: applyPipeline,
+    finishPass: finishPass,
+    appendBuffer: appendBuffer
   ),
   glFamily: glFamily,
   makeShader: cMakeShader,

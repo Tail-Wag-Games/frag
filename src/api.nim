@@ -26,6 +26,7 @@ type
   ApiType* = distinct int32
 
   CoreApi* = object
+    frameIndex*: proc(): int64 {.cdecl.}
     testAndDelJob*: proc(job: Job): bool {.cdecl.}
     numJobThreads*: proc(): int32 {.cdecl.}
     jobThreadIndex*: proc(): int32 {.cdecl.}
@@ -124,7 +125,9 @@ type
     finish*: proc() {.cdecl.}
 
     beginDefaultPass*: proc(passAction: ptr PassAction; width, height: int32) {.cdecl.}
+    applyPipeline*: proc(pip: Pipeline) {.cdecl.}
     finishPass*: proc() {.cdecl.}
+    appendBuffer*: proc(buf: Buffer; data: pointer; dataSize: int32): int32 {.cdecl.}
 
   GfxApi* = object
     staged*: GfxDrawApi
@@ -207,6 +210,7 @@ type
   CameraApi* = object
     perspective*: proc(cam: ptr Camera; proj: ptr Matrix4x4f) {.cdecl.}
     view*: proc(cam: ptr Camera; view: ptr Matrix4x4f) {.cdecl.}
+    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr array[8, Float3f]; fNear, fFar: float32) {.cdecl}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle;
         fnear, ffar: float32) {.cdecl.}
     lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Float3f) {.cdecl.}

@@ -44,13 +44,23 @@ type
     y*: float32
     z*: float32
     w*: float32
-  
+
   Float4x4f* = object
-    m* {.align: 16}: array[4, array[4, float32]]
+    m* {.align: 16.}: array[4, array[4, float32]]
 
   Rectangle* = object
-    xmin*, ymin*: float32
-    xmax*, ymax*: float32
+    xMin*, yMin*: float32
+    xMax*, yMax*: float32
+
+  AABB* = object
+    xMin*, yMin*, zMin*: float32
+    xMax*, yMax*, zMax*: float32
+
+  Color* = object
+    r*: uint8
+    g*: uint8
+    b*: uint8
+    a*: uint8
 
 const
   OneDivTwoPi* = 1.591549430918953357688837633725143620e-01'f32
@@ -58,6 +68,10 @@ const
   HalfPi* = 1.570796326794896619231321691639751442'f32
   PiDivOneEighty* = 0.01745329251994329576923690768489'f32
   Pi* = 3.141592653589793238462643383279502884'f32
+
+  Red* = Color(r: 255, b: 0, g: 0, a: 255)
+  Green* = Color(r: 0, b: 0, g: 255, a: 255)
+
 
 template allTrue2Mask4f(inputMask, output): untyped =
   (mm_movemask_ps(inputMask) and 0x3) == 0x3
@@ -71,7 +85,7 @@ template mulvAddVector(v0, v1, v2): untyped =
 when defined vcc:
   proc isMixXyzw*(arg: Mix4): bool {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
     result = uint32(arg) <= uint32(m4W)
-  
+
   proc isMixAbcd*(arg: Mix4): bool {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
     result = uint32(arg) >= uint32(m4A)
 
@@ -90,7 +104,44 @@ when defined vcc:
   proc maxScalar*(lhs, rhs: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
     result = mm_cvtss_f32(mm_max_ss(mm_set_ps1(lhs), mm_set_ps1(rhs)))
 
-  proc roundBankersScalar*(input: Scalarf): Scalarf {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
+  proc absScalar*(input: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
+    let absMask = mm_set_epi32(0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32)
+    result = mm_cvtss_f32(mm_and_ps(mm_set_ps1(input), mm_castsi128_ps(abs_mask)))
+
+  proc ceilScalar*(input: Scalarf): Scalarf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    let
+      absMask = mm_set_epi32(0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32)
+      fractionalLimit = mm_set_ps1(8388608.0'f32)
+
+      absInput = mm_and_ps(input.value, mm_castsi128_ps(absMask))
+      isInputLarge = mm_cmpge_ss(absInput, fractionalLimit)
+
+      isNan = mm_cmpneq_ss(input.value, input.value)
+
+      useOriginalInput = mm_or_ps(isInputLarge, isNan)
+
+    var integerPart = mm_cvtepi32_ps(mm_cvtps_epi32(input.value))
+
+    let
+      isPositive = mm_cmplt_ss(integerPart, input.value)
+
+      bias = mm_cvtepi32_ps(mm_castps_si128(isPositive))
+
+    integerPart = mm_sub_ss(integerPart, bias)
+
+    result = Scalarf(value: mm_or_ps(mm_and_ps(useOriginalInput, input.value),
+        mm_andnot_ps(useOriginalInput, integerPart)))
+
+  proc reciprocalScalar*(input: Scalarf): Scalarf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result.value = mm_div_ss(mm_set_ps1(1.0'f32), input.value)
+
+  proc reciprocalScalar*(input: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result = castScalar(reciprocalScalar(setScalar(input)))
+
+  proc ceilScalar*(input: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
+    result = castScalar(ceilScalar(setScalar(input)))
+
+  proc roundBankersScalar*(input: Scalarf): Scalarf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     let
       signMask = mm_set_ps(-0.0'f32, -0.0'f32, -0.0'f32, -0.0'f32)
       sign = mm_and_ps(input.value, signMask)
@@ -110,7 +161,7 @@ when defined vcc:
     quotient = mm_mul_ss(quotient, mm_set_ps1(TwoPi))
     var x = mm_sub_ss(angle.value, quotient)
 
-    let 
+    let
       signMask = mm_set_ps(-0.0'f32, -0.0'f32, -0.0'f32, -0.0'f32)
       sign = mm_and_ps(x, signMask)
       reference = mm_or_ps(sign, mm_set_ps1(Pi))
@@ -129,7 +180,7 @@ when defined vcc:
     resVal = (resVal * x2) + 1.0'f32
     resVal = resVal * mm_cvtss_f32(x)
     result = setScalar(resVal)
-  
+
   proc sinScalar(angle: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
     result = castScalar(sinScalar(setScalar(angle)))
 
@@ -139,7 +190,7 @@ when defined vcc:
     quotient = mm_mul_ss(quotient, mm_set_ps1(TwoPi))
     var x = mm_sub_ss(angle.value, quotient)
 
-    let 
+    let
       signMask = mm_set_ps(-0.0'f32, -0.0'f32, -0.0'f32, -0.0'f32)
       sign = mm_and_ps(x, signMask)
       reference = mm_or_ps(sign, mm_set_ps1(Pi))
@@ -157,30 +208,31 @@ when defined vcc:
     resVal = (resVal * x2) - 4.9999999508695869e-1'f32
     resVal = (resVal * x2) + 1.0'f32
 
-    let 
+    let
       res = mm_set_ps1(resVal)
       cos = mm_or_ps(res, mm_andnot_ps(isLessEqualThanHalfPi, signMask))
-    
+
     result.value = cos
-  
+
   proc cosScalar(angle: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
     result = castScalar(cosScalar(setScalar(angle)))
 
-  proc sinCosScalar*(angle: float32; outSin, outCos: var float32) {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
-    outSin = sinScalar(angle)
-    outCos = cosScalar(angle)
-  
+  proc sinCosScalar*(angle: float32; outSin,
+      outCos: ptr float32) {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
+    outSin[] = sinScalar(angle)
+    outCos[] = cosScalar(angle)
+
   proc tanScalar*(angle: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
     let
       a = setScalar(angle)
       sin = sinScalar(a)
       cos = cosScalar(a)
-    
+
     block outer:
       if castScalar(cos) == 0.0'f32:
         result = copySign(Inf, angle)
         break outer
-    
+
       result = castScalar(divScalar(sin, cos))
 
   proc sqrtReciprocalScalar(input: Scalarf): Scalarf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
@@ -201,6 +253,9 @@ when defined vcc:
 
   proc sqrtReciprocalScalar(input: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = castScalar(sqrtReciprocalScalar(setScalar(input)))
+  
+  proc nearEqualScalar*(lhs, rhs, threshold: float32): bool {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
+    result = absScalar(lhs - rhs) <= threshold
 
   proc getVectorX*(input: Vector4f): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_cvtss_f32(input)
@@ -217,63 +272,81 @@ when defined vcc:
   proc setVector*(x, y, z: float32): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_set_ps(0.0'f32, z, y, x)
 
+  proc setVector*(f: Float3f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result = mm_set_ps(0.0'f32, f.z, f.y, f.x)
+
   proc setVector*(xyzw: float32): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_set_ps1(xyzw)
 
   proc zeroVector*(): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     mm_setzero_ps()
-  
-  proc mixVector[comp0: static  Mix4, comp1: static Mix4, comp2: static Mix4, comp3: static Mix4](a, b: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+
+  proc mixVector[comp0: static Mix4; comp1: static Mix4; comp2: static Mix4;
+      comp3: static Mix4](a,
+      b: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     if isMixXyzw(comp0) and isMixXyzw(comp1) and isMixXyzw(comp2) and isMixXyzw(comp3):
-      result = mm_shuffle_ps(a, a, MM_SHUFFLE(int32(comp3) mod 4, int32(comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
+      result = mm_shuffle_ps(a, a, MM_SHUFFLE(int32(comp3) mod 4, int32(
+          comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
 
     if isMixAbcd(comp0) and isMixAbcd(comp1) and isMixAbcd(comp2) and isMixAbcd(comp3):
-      result = mm_shuffle_ps(b, b, MM_SHUFFLE(int32(comp3) mod 4, int32(comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
+      result = mm_shuffle_ps(b, b, MM_SHUFFLE(int32(comp3) mod 4, int32(
+          comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
 
     if isMixXyzw(comp0) and isMixXyzw(comp1) and isMixAbcd(comp2) and isMixAbcd(comp3):
-      result = mm_shuffle_ps(a, b, MM_SHUFFLE(int32(comp3) mod 4, int32(comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
-    
+      result = mm_shuffle_ps(a, b, MM_SHUFFLE(int32(comp3) mod 4, int32(
+          comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
+
     if isMixAbcd(comp0) and isMixAbcd(comp1) and isMixXyzw(comp2) and isMixXyzw(comp3):
-      result = mm_shuffle_ps(b, a, MM_SHUFFLE(int32(comp3) mod 4, int32(comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
+      result = mm_shuffle_ps(b, a, MM_SHUFFLE(int32(comp3) mod 4, int32(
+          comp2) mod 4, int32(comp1) mod 4, int32(comp0) mod 4))
 
     if comp0 == m4X and comp1 == m4A and comp2 == m4Y and comp3 == m4B:
       result = mm_unpacklo_ps(a, b)
-    
+
     if comp0 == m4A and comp1 == m4X and comp2 == m4B and comp3 == m4Y:
       result = mm_unpacklo_ps(b, a)
-    
+
     if comp0 == m4Z and comp1 == m4C and comp2 == m4W and comp3 == m4D:
       result = mm_unpackhi_ps(a, b)
-    
+
     if comp0 == m4C and comp1 == m4Z and comp2 == m4D and comp3 == m4W:
       result = mm_unpackhi_ps(b, a)
 
-  proc dupXVector*(input: Vector4f): Vector4f  {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+  proc dupXVector*(input: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     mixVector[m4X, m4X, m4X, m4X](input, input)
-  
-  proc dupYVector*(input: Vector4f): Vector4f  {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+
+  proc dupYVector*(input: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     mixVector[m4Y, m4Y, m4Y, m4Y](input, input)
-  
-  proc dupZVector*(input: Vector4f): Vector4f  {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+
+  proc dupZVector*(input: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     mixVector[m4Z, m4Z, m4Z, m4Z](input, input)
 
   proc absVector*(input: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     let absMask = mm_set_epi32(0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32, 0x7FFFFFFF'u32)
     result = mm_and_ps(input, mm_castsi128_ps(absMask))
 
+  proc minVector*(lhs, rhs: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result = mm_min_ps(lhs, rhs)
+  
+  proc maxVector*(lhs, rhs: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result = mm_max_ps(lhs, rhs)
+
   proc subVector*(lhs, rhs: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_sub_ps(lhs, rhs)
 
-  proc mulVector(lhs: Vector4f; rhs: Scalarf): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+  proc mulVector*(lhs: Vector4f; rhs: Scalarf): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_mul_ps(lhs, mm_shuffle_ps(rhs.value, rhs.value, MM_SHUFFLE(0, 0,
         0, 0)))
 
-  proc mulVector(lhs, rhs: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+  proc mulVector*(lhs, rhs: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_mul_ps(lhs, rhs)
-  
+
+  proc mulVector*(lhs: Vector4f; rhs: float32): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    result = mulVector(lhs, setVector(rhs))
+
   proc mulAddVector*(v0, v1, v2: Vector4f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mulvAddVector(v0, v1, v2)
-  
+
   proc addVector*(lhs, rhs: Vector4f): Vector4f{.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = mm_add_ps(lhs, rhs)
 
@@ -308,6 +381,16 @@ when defined vcc:
       z2000 = mm_shuffle_ps(x2y2z2w2, x2y2z2w2, MM_SHUFFLE(0, 0, 0, 2))
 
     result.value = mm_add_ss(x2y2000, z2000)
+
+  # proc dotVector3*(lhs, rhs: Vector4f): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+  #   let
+  #     x2y2z2w2 = mm_mul_ps(lhs, rhs)
+  #     y2000 = mm_shuffle_ps(x2y2z2w2, x2y2z2w2, MM_SHUFFLE(0, 0, 0, 1))
+  #     x2y2000 = mm_add_ss(x2y2z2w2, y2000)
+  #     z2000 = mm_shuffle_ps(x2y2z2w2, x2y2z2w2, MM_SHUFFLE(0, 0, 0, 2))
+  #     x2y2z2000 = mm_add_ss(x2y2000, z2000)
+
+  #   result = mm_cvtss_f32(x2y2z2000)
 
   proc lengthSquaredVector3(input: Vector4f): Scalarf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = dotVector3(input, input)
@@ -345,11 +428,64 @@ when defined vcc:
   proc identityQuat*(): Quatf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result = setQuat(0.0, 0.0, 0.0, 1.0)
 
+  proc normQuat*(input: Quatf): Quatf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    let
+      x2y2z2w2 = mm_mul_ps(input, input)
+      z2w200 = mm_shuffle_ps(x2y2z2w2, x2y2z2w2, MM_SHUFFLE(0, 0, 3, 2))
+      x2z2y2w200 = mm_add_ps(x2y2z2w2, z2w200)
+      y2w2000 = mm_shuffle_ps(x2z2y2w200, x2z2y2w200, MM_SHUFFLE(0, 0, 0, 1))
+      x2y2z2w2000 = mm_add_ps(x2z2y2w200, y2w2000)
+
+      dot = x2y2z2w2000
+
+      half = mm_set_ss(0.5'f32)
+      inputHalfV = mm_mul_ss(dot, half)
+      x0 = mm_rsqrt_ss(dot)
+
+    var x1 = mm_mul_ss(x0, x0)
+    x1 = mm_sub_ss(half, mm_mul_ss(inputHalfV, x1))
+    x1 = mm_add_ss(mm_mul_ss(x0, x1), x0)
+
+    var x2 = mm_mul_ss(x1, x1)
+    x2 = mm_sub_ss(half, mm_mul_ss(inputHalfV, x2))
+    x2 = mm_add_ss(mm_mul_ss(x1, x2), x1)
+
+    let invLen = mm_shuffle_ps(x2, x2, MM_SHUFFLE(0, 0, 0, 0))
+
+    result = mm_mul_ps(input, invLen)
+
   proc quatFromMatrix*(xAxis, yAxis, zAxis: Vector4f): Quatf {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     let zero = zeroVector()
     if allNearEqualVector3(xAxis, zero) or allNearEqualVector3(yAxis, zero) or
         allNearEqualVector3(zAxis, zero):
       result = identityQuat()
+
+    let
+      xAxisX = getVectorX(xAxis)
+      yAxisY = getVectorY(yAxis)
+      zAxisZ = getVectorZ(zAxis)
+
+      mtxTrace = xAxisX + yAxisY + zAxisZ
+    if mtxTrace > 0.0'f32:
+      let
+        xAxisY = getVectorY(xAxis)
+        xAxisZ = getVectorZ(xAxis)
+
+        yAxisX = getVectorX(yAxis)
+        yAxisZ = getVectorZ(yAxis)
+
+        zAxisX = getVectorX(zAxis)
+        zAxisY = getVectorY(zAxis)
+
+        invTrace = sqrtReciprocalScalar(mtxTrace + 1.0'f32)
+        halfInvTrace = invTrace * 0.5'f32
+
+        x = (yAxisZ - zAxisY) * halfInvTrace
+        y = (zAxisX - xAxisZ) * halfInvTrace
+        z = (xAxisY - yAxisX) * halfInvTrace
+        w = reciprocalScalar(invTrace) * 0.5'f32
+
+      result = normQuat(setQuat(x, y, z, w))
 
   proc setMatrix*(xAxis, yAxis, zAxis, wAxis: Vector4f): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result.xAxis = xAxis
@@ -357,8 +493,9 @@ when defined vcc:
     result.zAxis = zAxis
     result.wAxis = wAxis
 
-  proc perspective*(width, height, zNear, zFar: float32; oglNdc: bool): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
-    let 
+  proc perspective*(width, height, zNear, zFar: float32;
+      oglNdc: bool): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    let
       d = zFar - zNear
       aa = if oglNdc: (zFar + zNear) / d else: zFar / d
       bb = if oglNdc: (2.0'f32 * zNear * zFar) / d else: zNear * aa
@@ -369,9 +506,10 @@ when defined vcc:
 
     result = setMatrix(col0, col1, col2, col3)
 
-  proc perspectiveFov*(fovAngleY, aspectRatio, nearZ, farZ: float32; oglNdc: bool): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+  proc perspectiveFov*(fovAngleY, aspectRatio, nearZ, farZ: float32;
+      oglNdc: bool): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     var sinFov, cosFov: float32
-    sinCosScalar(0.5'f32 * fovAngleY, sinFov, cosFov)
+    sinCosScalar(0.5'f32 * fovAngleY, addr(sinFov), addr(cosFov))
 
     let
       height = cosFov / sinFov
@@ -428,14 +566,67 @@ proc float3f*(x, y, z: float32): Float3f =
   result.y = y
   result.z = z
 
-proc rectangle(xmin, ymin, xmax, ymax: float32): Rectangle =
-  result.xmin = xmin
-  result.ymin = ymin
-  result.xmax = xmax
-  result.ymax = ymax
+proc rectangle(xMin, yMin, xMax, yMax: float32): Rectangle =
+  result.xMin = xMin
+  result.yMin = yMin
+  result.xMax = xMax
+  result.yMax = yMax
 
 proc rectwh*(x, y, w, h: float32): Rectangle =
   result = rectangle(x, y, x + w, y + h)
+
+proc emptyAABB*(): AABB =
+  result.xMin = float32.high
+  result.yMin = float32.high
+  result.zMin = float32.high
+  result.xMax = -float32.high
+  result.yMax = -float32.high
+  result.zMax = -float32.high
+
+proc aabbv*(vMin, vMax: Float3f): AABB =
+  result.xMin = vMin.x
+  result.yMin = vMin.y
+  result.zMin = vMin.z
+  
+  result.xMax = vMax.x
+  result.yMax = vMax.y
+  result.zMax = vMax.z
+
+proc aabbf*(xMin, yMin, zMin, xMax, yMax, zMax: float32): AABB =
+  result.xMin = xMin
+  result.yMin = yMin
+  result.zMin = zMin
+  
+  result.xMax = xMax
+  result.yMax = yMax
+  result.zMax = zMax
+
+proc addPoint*(aabb: ptr AABB; pt: Float3f) =
+  var vMin, vMax: Float3f
+  storeVector3(addr(vMin), minVector(setVector(aabb.xMin, aabb.yMin, aabb.zMin),
+      setVector(pt.x, pt.y, pt.z)))
+  storeVector3(addr(vMax), maxVector(setVector(aabb.xMax, aabb.yMax, aabb.zMax),
+      setVector(pt.x, pt.y, pt.z)))
+  
+  aabb[] = aabbv(vMin, vMax)
+
+proc normPlane*(va, vb, vc: Float3f; output: ptr Float3f) {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
+  let
+    v4va = setVector(va.x, va.y, va.z)
+    ba = subVector(setVector(vb), v4va)
+    ca = subVector(setVector(vc), v4va)
+    baca = crossVector3(ca, ba)
+
+  storeVector3(output, normVector3(baca))
+
+proc normPlane*(va, vb, vc: Float3f): Vector4f {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
+  let
+    v4va = setVector(va.x, va.y, va.z)
+    ba = subVector(setVector(vb), v4va)
+    ca = subVector(setVector(vc), v4va)
+    baca = crossVector3(ca, ba)
+
+  normVector3(baca)
 
 proc toRad*(deg: float32): float32 {.codegendecl: "__declspec(safebuffers) __forceinline $# $#$#", inline.} =
   result = deg * PiDivOneEighty
