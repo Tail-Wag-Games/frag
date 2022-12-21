@@ -301,7 +301,11 @@ proc runApplyScissorRectCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
 proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+  let pipId = cast[ptr Pipeline](buff)[offset]
+  applyPipeline(pipId)
+
+  result = (buff, sizeof(Pipeline) + offset)
+  
 
 proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
@@ -334,7 +338,28 @@ proc runUpdateImageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
 proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+  var curOffset = offset
+  let streamIndex = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+  let buf = cast[ptr Buffer](addr(buff[curOffset]))[]
+  curOffset += sizeof(Buffer)
+  let streamOffset = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+  let dataSize = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+
+  assert(streamIndex < len(ctx.streamBuffers))
+  assert(len(ctx.streamBuffers) > 0)
+  let sBuff = addr(ctx.streamBuffers[streamIndex])
+  assert(sBuff != nil)
+  assert(sBuff.buf.id == buf.id, "streaming buffers probably destroyed during render or update")
+  mapBuffer(buf, streamOffset, cast[pointer](buff), dataSize)
+  curOffset += dataSize
+
+  result = (buff: buff, offset: curOffset)
+  
+
+  
 
 proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8],
     offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
@@ -493,9 +518,9 @@ proc beginDefaultPass(passAction: ptr PassAction; width,
 
   copyMem(addr(buff[0]), passAction, sizeof(passAction[]))
   buff += sizeof(passAction[])
-  cast[ptr int](buff)[] = width
+  cast[ptr int32](buff)[] = width
   buff += sizeof(int32)
-  cast[ptr int](buff)[] = height
+  cast[ptr int32](buff)[] = height
 
 proc applyPipeline(pip: Pipeline) {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
@@ -566,7 +591,58 @@ proc applyBindings*(bindings: ptr Bindings) {.cdecl.} =
       break
 
 proc applyUniforms*(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer; numBytes: int32) {.cdecl.} =
-  discard
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var 
+    offset = 0
+    buff = initParamsBuff(cb, sizeof(sgfx.ShaderStage) + sizeof(int32) * 2 + numBytes, offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdApplyUniforms,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  cast[ptr sgfx.ShaderStage](buff)[] = stage
+  buff += sizeof(sgfx.ShaderStage)
+  cast[ptr int32](buff)[] = ubIndex
+  buff += sizeof(int32)
+  cast[ptr int32](buff)[] = numBytes
+  buff += sizeof(int32)
+  copyMem(buff, data, numBytes)
+
+proc draw*(baseElement: int32; numElements: int32; numInstances: int32) {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var 
+    offset = 0
+    buff = initParamsBuff(cb, sizeof(int32) * 3, offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdDraw,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  cast[ptr int32](buff)[] = baseElement
+  buff += sizeof(int32)
+  cast[ptr int32](buff)[] = numElements
+  buff += sizeof(int32)
+  cast[ptr int32](buff)[] = numInstances
 
 proc finishPass() {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
@@ -973,6 +1049,7 @@ gfxApi = GfxApi(
     applyPipeline: applyPipeline,
     applyBindings: applyBindings,
     applyUniforms: applyUniforms,
+    draw: draw,
     finishPass: finishPass,
     appendBuffer: appendBuffer
   ),

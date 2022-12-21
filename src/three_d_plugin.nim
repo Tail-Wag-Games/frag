@@ -109,7 +109,7 @@ proc gridXYPlane(spacing, spacingBold: float32; vp: ptr FLoat4x4f;
     bindings.vertexBufferOffsets[0] = offset
 
     gfxApi.staged.applyPipeline(ctx.wirePipeline)
-    gfxApi.staged.applyUniforms(ssVs, 0, cast[pointer](vp), int32(sizeof(vp[])))
+    gfxApi.staged.applyUniforms(shaderStageVs, 0, cast[pointer](vp), int32(sizeof(vp[])))
     gfxApi.staged.applyBindings(addr(bindings))
     gfxApi.staged.draw(0, numVerts, 1)
 
