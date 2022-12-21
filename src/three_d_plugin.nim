@@ -5,7 +5,7 @@ from math import `mod`
 
 type
   DebugState = object
-    dynVBuff: Buffer
+    dynVbuff: Buffer
     wireShader: gfx.Shader
     wirePipeline: Pipeline
     numVerts: int32
@@ -101,14 +101,17 @@ proc gridXYPlane(spacing, spacingBold: float32; vp: ptr FLoat4x4f;
 
       i += 2
     
-    let offset = drawApi.appendBuffer(ctx.dynVBuff, cast[pointer](addr(verts[0])), dataSize)
+    let offset = drawApi.appendBuffer(ctx.dynVbuff, cast[pointer](addr(verts[0])), dataSize)
     ctx.numVerts += numVerts
 
     var bindings: Bindings
-    bindings.vertexBuffers[0] = ctx.dynVBuff
+    bindings.vertexBuffers[0] = ctx.dynVbuff
     bindings.vertexBufferOffsets[0] = offset
 
     gfxApi.staged.applyPipeline(ctx.wirePipeline)
+    gfxApi.staged.applyUniforms(ssVs, 0, cast[pointer](vp), int32(sizeof(vp[])))
+    gfxApi.staged.applyBindings(addr(bindings))
+    gfxApi.staged.draw(0, numVerts, 1)
 
 
 proc gridXYPlaneCam(spacing, spacingBold, dist: float32; cam: ptr Camera;

@@ -521,6 +521,53 @@ proc applyPipeline(pip: Pipeline) {.cdecl.} =
   
   setPipelineUsedFrame(pip.id, coreApi.frameIndex())
 
+proc applyBindings*(bindings: ptr Bindings) {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var 
+    offset = 0
+    buff = initParamsBuff(cb, sizeof(Bindings), offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdApplyBindings,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  copyMem(buff, bindings, sizeof(bindings[]))
+
+  let frameIdx = coreApi.frameIndex()
+  for i in 0 ..< maxShaderstageBuffers:
+    if bool(bindings.vertexBuffers[i].id):
+      setBufferUsedFrame(bindings.vertexBuffers[i].id, frameIdx)
+    else:
+      break
+  
+  if bool(bindings.indexBuffer.id):
+    setBufferUsedFrame(bindings.indexBuffer.id, frameIdx)
+  
+  for i in 0 ..< maxShaderstageImages:
+    if bool(bindings.vsImages[i].id):
+      setImageUsedFrame(bindings.vsImages[i].id, frameIdx)
+    else:
+      break
+  
+  for i in 0 ..< maxShaderstageImages:
+    if bool(bindings.fsImages[i].id):
+      setImageUsedFrame(bindings.fsImages[i].id, frameIdx)
+    else:
+      break
+
+proc applyUniforms*(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer; numBytes: int32) {.cdecl.} =
+  discard
+
 proc finishPass() {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
 
@@ -924,6 +971,8 @@ gfxApi = GfxApi(
     finish: finishStage,
     beginDefaultPass: beginDefaultPass,
     applyPipeline: applyPipeline,
+    applyBindings: applyBindings,
+    applyUniforms: applyUniforms,
     finishPass: finishPass,
     appendBuffer: appendBuffer
   ),

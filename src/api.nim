@@ -126,6 +126,8 @@ type
 
     beginDefaultPass*: proc(passAction: ptr PassAction; width, height: int32) {.cdecl.}
     applyPipeline*: proc(pip: Pipeline) {.cdecl.}
+    applyBindings*: proc(bindings: ptr Bindings) {.cdecl.}
+    applyUniforms*: proc(stage: ShaderStage; ubIndex: int32; data: pointer; numBytes: int32) {.cdecl.}
     finishPass*: proc() {.cdecl.}
     appendBuffer*: proc(buf: Buffer; data: pointer; dataSize: int32): int32 {.cdecl.}
 
