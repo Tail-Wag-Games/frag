@@ -301,10 +301,13 @@ proc runApplyScissorRectCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
 proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  let pipId = cast[ptr Pipeline](buff)[offset]
+  var curOffset = offset
+  let pipId = cast[ptr Pipeline](addr(buff[curOffset]))[]
+  curOffset += sizeof(Pipeline)
+
   applyPipeline(pipId)
 
-  result = (buff, sizeof(Pipeline) + offset)
+  result = (buff: buff, offset: curOffset)
   
 
 proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
@@ -313,7 +316,17 @@ proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
 proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+  var curOffset = offset
+  let stage = cast[ptr sgfx.ShaderStage](addr(buff[curOffset]))[]
+  curOffset += sizeof(sgfx.ShaderStage)
+  let ubIndex = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+  let numBytes = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+
+  applyUniforms(stage, ubIndex, Range(`addr`: buff, size: numBytes))
+
+  result = (buff: buff, offset: curOffset)
 
 proc runDrawCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
@@ -358,9 +371,6 @@ proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
   result = (buff: buff, offset: curOffset)
   
-
-  
-
 proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8],
     offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
