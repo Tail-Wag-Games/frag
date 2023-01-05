@@ -19,7 +19,8 @@ task debugBuild, "build frag executable with debug symbols":
   exec "lib /out:.\\thirdparty\\crd.lib C:\\Users\\Zach\\dev\\frag\\thirdparty\\crd.o"
 
 task compileShaders, "compile shaders":
-  exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=basic -o C:\\Users\\Zach\\dev\\frag\\src\\basic.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\basic.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\basic.frag"
+  exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=basic -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\basic.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\basic.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\basic.frag"
+  exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=wire -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\wire.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\wire.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\wire.frag"
 
 task build3dPlugin, "build 3d plugin":
   exec "nim c --debugger:native --threads:on --app:lib --out:three_d.dll .\\src\\three_d_plugin.nim"

@@ -119,6 +119,16 @@ type
   Shader* = object
     shd*: sgfx.Shader
     info*: ShaderInfo
+  
+  VertexAttribute* = object
+    semantic*: cstring
+    semanticIndex*: int32
+    offset*: int32
+    format*: VertexFormat
+    bufferIndex*: int32
+  
+  VertexLayout* = object
+    attributes*: array[maxVertexAttributes, VertexAttribute]
 
   GfxDrawApi* = object
     begin*: proc(stage: GfxStage): bool {.cdecl.}
@@ -135,13 +145,16 @@ type
   GfxApi* = object
     staged*: GfxDrawApi
     glFamily*: proc(): bool {.cdecl.}
+    makeBuffer*: proc(desc: ptr BufferDesc): sgfx.Buffer {.cdecl.}
     makeShader*: proc(desc: ptr ShaderDesc): sgfx.Shader {.cdecl.}
+    makePipeline*: proc(desc: ptr PipelineDesc): sgfx.Pipeline {.cdecl.}
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[
         uint32]; vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
             fsDataSize: uint32;
         fsData: ptr UncheckedArray[uint32]; fsReflSize: uint32;
             fsReflJson: ptr UncheckedArray[uint32]): Shader {.cdecl.}
+    bindShaderToPipeline*: proc(shd: ptr Shader; pipDesc: ptr PipelineDesc; vl: ptr VertexLayout): ptr PipelineDesc {.cdecl.}
 
   VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock;
       userData: pointer) {.cdecl.}
@@ -213,7 +226,7 @@ type
   CameraApi* = object
     perspective*: proc(cam: ptr Camera; proj: ptr Matrix4x4f) {.cdecl.}
     view*: proc(cam: ptr Camera; view: ptr Matrix4x4f) {.cdecl.}
-    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr array[8, Float3f]; fNear, fFar: float32) {.cdecl}
+    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: array[8, Float3f]; fNear, fFar: float32) {.cdecl}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle;
         fnear, ffar: float32) {.cdecl.}
     lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Float3f) {.cdecl.}

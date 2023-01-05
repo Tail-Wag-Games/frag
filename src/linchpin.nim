@@ -56,6 +56,8 @@ proc frame*() =
 
   gfx.executeCommandBuffers()
 
+  sgfx.commit()
+
   inc(ctx.frameIndex)
   
 proc shutdown*() =

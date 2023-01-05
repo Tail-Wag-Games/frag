@@ -100,6 +100,8 @@ type
 
     currentStageName: array[32, char]
 
+    lastShaderError: bool
+
 
 const
   MaxStages = 1024
@@ -282,7 +284,7 @@ proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
 proc runBeginPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  # echo "running begin pass callback!"
+  echo "running begin pass callback!"
   # let passAction = cast[ptr PassAction](buff)
   # buff += sizeof(PassAction)
   # let pass = cast[ptr Pass](buff)[]
@@ -308,11 +310,14 @@ proc runApplyPipelineCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
   applyPipeline(pipId)
 
   result = (buff: buff, offset: curOffset)
-  
 
 proc runApplyBindingsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+  var curOffset = offset
+  let bindings = cast[ptr Bindings](addr(buff[curOffset]))[]
+  applyBindings(bindings)
+  curOffset += sizeof(Bindings)
+  result = (buff: buff, offset: curOffset)
 
 proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
@@ -323,14 +328,22 @@ proc runApplyUniformsCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
   curOffset += sizeof(int32)
   let numBytes = cast[ptr int32](addr(buff[curOffset]))[]
   curOffset += sizeof(int32)
-
-  applyUniforms(stage, ubIndex, Range(`addr`: buff, size: numBytes))
-
+  applyUniforms(stage, ubIndex, Range(`addr`: addr(buff[curOffset]),
+      size: numBytes))
+  curOffset += sizeof(numBytes)
   result = (buff: buff, offset: curOffset)
 
 proc runDrawCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+  var curOffset = offset
+  let baseElement = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+  let numElements = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+  let numInstances = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+  draw(baseElement, numElements, numInstances)
+  result = (buff: buff, offset: curOffset)
 
 proc runDispatchCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
@@ -366,11 +379,11 @@ proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
   let sBuff = addr(ctx.streamBuffers[streamIndex])
   assert(sBuff != nil)
   assert(sBuff.buf.id == buf.id, "streaming buffers probably destroyed during render or update")
-  mapBuffer(buf, streamOffset, cast[pointer](buff), dataSize)
+  mapBuffer(buf, streamOffset, Range(`addr`: addr(buff[curOffset]), size: dataSize))
   curOffset += dataSize
 
   result = (buff: buff, offset: curOffset)
-  
+
 proc runBeginProfileSampleCb(buff: ptr UncheckedArray[uint8],
     offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   discard
@@ -423,7 +436,7 @@ proc initParamsBuff(cb: ptr CommandBuffer; size: int;
 
     let currentLen = len(cb.paramsBuffer)
     setLen(cb.paramsBuffer, currentLen + int(alignMask(size, NaturalAlignment - 1)))
-    offset = int(addr(cb.paramsBuffer[currentLen]) - addr(cb.paramsBuffer[0]))
+    offset = int(uint(addr(cb.paramsBuffer[currentLen]) - addr(cb.paramsBuffer[0])))
 
     result = addr(cb.paramsBuffer[currentLen])
 
@@ -512,7 +525,7 @@ proc beginDefaultPass(passAction: ptr PassAction; width,
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var 
+  var
     offset = 0
     buff = initParamsBuff(cb, sizeof(PassAction) + sizeof(int32) * 2, offset)
 
@@ -538,7 +551,7 @@ proc applyPipeline(pip: Pipeline) {.cdecl.} =
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var 
+  var
     offset = 0
     buff = initParamsBuff(cb, sizeof(Pipeline), offset)
 
@@ -553,7 +566,7 @@ proc applyPipeline(pip: Pipeline) {.cdecl.} =
   inc(cb.cmdIdx)
 
   cast[ptr Pipeline](buff)[] = pip
-  
+
   setPipelineUsedFrame(pip.id, coreApi.frameIndex())
 
 proc applyBindings*(bindings: ptr Bindings) {.cdecl.} =
@@ -562,7 +575,7 @@ proc applyBindings*(bindings: ptr Bindings) {.cdecl.} =
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var 
+  var
     offset = 0
     buff = initParamsBuff(cb, sizeof(Bindings), offset)
 
@@ -584,31 +597,33 @@ proc applyBindings*(bindings: ptr Bindings) {.cdecl.} =
       setBufferUsedFrame(bindings.vertexBuffers[i].id, frameIdx)
     else:
       break
-  
+
   if bool(bindings.indexBuffer.id):
     setBufferUsedFrame(bindings.indexBuffer.id, frameIdx)
-  
+
   for i in 0 ..< maxShaderstageImages:
     if bool(bindings.vsImages[i].id):
       setImageUsedFrame(bindings.vsImages[i].id, frameIdx)
     else:
       break
-  
+
   for i in 0 ..< maxShaderstageImages:
     if bool(bindings.fsImages[i].id):
       setImageUsedFrame(bindings.fsImages[i].id, frameIdx)
     else:
       break
 
-proc applyUniforms*(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer; numBytes: int32) {.cdecl.} =
+proc applyUniforms*(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer;
+    numBytes: int32) {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
 
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var 
+  var
     offset = 0
-    buff = initParamsBuff(cb, sizeof(sgfx.ShaderStage) + sizeof(int32) * 2 + numBytes, offset)
+    buff = initParamsBuff(cb, sizeof(sgfx.ShaderStage) + sizeof(int32) * 2 +
+        numBytes, offset)
 
   let r = CommandBufferRef(
     key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
@@ -628,13 +643,14 @@ proc applyUniforms*(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer; numB
   buff += sizeof(int32)
   copyMem(buff, data, numBytes)
 
-proc draw*(baseElement: int32; numElements: int32; numInstances: int32) {.cdecl.} =
+proc draw*(baseElement: int32; numElements: int32;
+    numInstances: int32) {.cdecl.} =
   let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
 
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var 
+  var
     offset = 0
     buff = initParamsBuff(cb, sizeof(int32) * 3, offset)
 
@@ -670,27 +686,28 @@ proc finishPass() {.cdecl.} =
   add(cb.refs, r)
   inc(cb.cmdIdx)
 
-proc appendBuffer(buf: Buffer; data: pointer; dataSize: int32): int32 {.cdecl.} =
+proc appendBuffer(buf: Buffer; data: pointer;
+    dataSize: int32): int32 {.cdecl.} =
   var idx = -1
   for i in 0 ..< len(ctx.streamBuffers):
     if ctx.streamBuffers[i].buf.id == buf.id:
       idx = i
       break
-  
-  assert(idx != -1, "buffer must be strea and not destroyed during render")
+
+  assert(idx != -1, "buffer must be streamed and not destroyed during render")
   let sBuff = addr((ctx.streamBuffers[idx]))
   assert(load(sBuff.offset) + uint32(dataSize) <= uint32(sBuff.size))
-  
-  let 
+
+  let
     streamOffset = fetchAdd(sBuff.offset, uint32(dataSize))
     cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
-  
+
   assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
   assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
 
-  var 
+  var
     offset = 0
-    buff = initParamsBuff(cb, dataSize + sizeof(int32) * 3 + sizeof(Buffer), offset)
+    buff = initParamsBuff(cb, dataSize + sizeof(int32) * 3 + sizeof(sgfx.Buffer), offset)
 
   let r = CommandBufferRef(
     key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
@@ -704,13 +721,13 @@ proc appendBuffer(buf: Buffer; data: pointer; dataSize: int32): int32 {.cdecl.} 
 
   cast[ptr int32](buff)[] = int32(idx)
   buff += sizeof(int32)
-  cast[ptr Buffer](buff)[] = buf
-  buff += sizeof(Buffer)
+  cast[ptr sgfx.Buffer](buff)[] = buf
+  buff += sizeof(sgfx.Buffer)
   cast[ptr uint32](buff)[] = streamOffset
   buff += sizeof(int32)
   cast[ptr int32](buff)[] = dataSize
   buff += sizeof(int32)
-  copyMem(addr(buff[0]), data, dataSize)
+  copyMem(buff, data, dataSize)
 
   setBufferUsedFrame(buf.id, coreApi.frameIndex())
 
@@ -930,7 +947,7 @@ proc parseShaderReflectJson(stageReflJson: cstring;
 proc setupShaderDesc(desc: ptr ShaderDesc; vsRefl: ref ShaderRefl; vs: pointer;
     vsSize: int; fsRefl: ref ShaderRefl; fs: pointer; fsSize: int;
     nameHandle: ptr uint32): ptr ShaderDesc {.cdecl.} =
-  desc[] = ShaderDesc()
+  zeroMem(desc, sizeof(ShaderDesc))
 
   let
     numStages = 2
@@ -1006,6 +1023,60 @@ proc makeShaderWithData(vsDataSize: uint32; vsData: ptr UncheckedArray[uint32];
         fsData, int32(fsDataSize), addr(result.info.nameHandle))
   )
 
+  result.info.numInputs = int32(min(len(vsRefl.inputs), maxVertexAttributes))
+  for i in 0 ..< result.info.numInputs:
+    result.info.inputs[i] = vsRefl.inputs[i]
+
+proc bindShaderToPipeline*(shader: ptr api.Shader; pipDesc: ptr PipelineDesc;
+    vl: ptr VertexLayout): ptr PipelineDesc {.cdecl.} =
+  assert(vl != nil)
+  pipDesc.shader = shader.shd
+
+  var 
+    index = 0
+    attr = addr(vl.attributes[0])
+  
+  # zeroMem(addr(pipDesc.layout.attrs), sizeof(VertexAttrDesc) * maxVertexAttributes)
+
+  while (attr.semantic != nil and len(attr.semantic) > 0) and index < shader.info.numInputs:
+    var found = false
+    for i in 0 ..< shader.info.numInputs:
+      if attr.semantic == shader.info.inputs[i].semantic and
+        attr.semanticIndex == shader.info.inputs[i].semanticIndex:
+        found = true
+
+        pipDesc.layout.attrs[i].offset = attr.offset
+        pipDesc.layout.attrs[i].format = if attr.format !=
+            vertexFormatInvalid: attr.format else: shader.info.inputs[i].vertexFormat
+        pipDesc.layout.attrs[i].bufferIndex = attr.bufferIndex
+        break
+
+    if not found:
+      logError("vertex attribute '$#$#' does not exist in actual shader inputs", attr.semantic, attr.semanticIndex)
+      assert(false)
+    
+    attr += 1
+    inc(index)
+  
+  result = pipDesc
+
+proc makePipeline(desc: ptr PipelineDesc): sgfx.Pipeline {.cdecl.} =
+  ctx.lastShaderError = false
+
+  result = sgfx.c_makePipeline(desc)
+
+  if ctx.lastShaderError:
+    logError("in pipeline: $#", if desc.label != nil: desc.label else: "[NA]")
+    ctx.lastShaderError = false
+
+proc makeBuffer(desc: ptr BufferDesc): sgfx.Buffer {.cdecl.} =
+  let bufId = sgfx.c_makeBuffer(desc)
+  if desc.usage == usageStream:
+    var sBuff = StreamBuffer(buf: bufId, size: desc.size)
+    store(sBuff.offset, 0'u32)
+    add(ctx.streamBuffers, sBuff)
+  result = bufId
+
 proc glFamily*(): bool {.cdecl.} =
   let backend = queryBackend()
   result = backend == backendGlcore33 or backend == backendGles2 or backend == backendGles3
@@ -1064,7 +1135,10 @@ gfxApi = GfxApi(
     appendBuffer: appendBuffer
   ),
   glFamily: glFamily,
+  makeBuffer: makeBuffer,
   makeShader: cMakeShader,
+  makePipeline: makePipeline,
   registerStage: registerStage,
   makeShaderWithData: makeShaderWithData,
+  bindShaderToPipeline: bindShaderToPipeline,
 )

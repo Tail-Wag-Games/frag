@@ -486,34 +486,63 @@ when defined vcc:
         w = reciprocalScalar(invTrace) * 0.5'f32
 
       result = normQuat(setQuat(x, y, z, w))
+  
+  template transposeMatrix4x4f*(inputXyzw0, inputXyzw1, inputXyzw2, inputXyzw3, outputXxxx, outputYyyy, outputZzzz, outputWwww) =
+    let 
+      x0y0x1y1 = mm_shuffle_ps(inputXyzw0, inputXyzw1, MM_SHUFFLE(1, 0, 1, 0))
+      z0w0z1w1 = mm_shuffle_ps(inputXyzw0, inputXyzw1, MM_SHUFFLE(3, 2, 3, 2))
+      x2y2x3y3 = mm_shuffle_ps(inputXyzw2, inputXyzw3, MM_SHUFFLE(1, 0, 1, 0))
+      z2w2z3w3 = mm_shuffle_ps(inputXyzw2, inputXyzw3, MM_SHUFFLE(3, 2, 3, 2))
+
+    outputXxxx = mm_shuffle_ps(x0y0x1y1, x2y2x3y3, MM_SHUFFLE(2, 0, 2, 0))
+    outputYyyy = mm_shuffle_ps(x0y0x1y1, x2y2x3y3, MM_SHUFFLE(3, 1, 3, 1))
+    outputZzzz = mm_shuffle_ps(z0w0z1w1, z2w2z3w3, MM_SHUFFLE(2, 0, 2, 0))
+    outputWwww = mm_shuffle_ps(z0w0z1w1, z2w2z3w3, MM_SHUFFLE(3, 1, 3, 1))
 
   proc setMatrix*(xAxis, yAxis, zAxis, wAxis: Vector4f): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     result.xAxis = xAxis
     result.yAxis = yAxis
     result.zAxis = zAxis
     result.wAxis = wAxis
+  
+  proc transposeMatrix*(input: Matrix4x4f): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    var xAxis, yAxis, zAxis, wAxis: Vector4f
+
+    transposeMatrix4x4f(input.xAxis, input.yAxis, input.zAxis, input.wAxis, xAxis, yAxis, zAxis, wAxis)
+    result = Matrix4x4f(xAxis: xAxis, yAxis: yAxis, zAxis: zAxis, wAxis: wAxis)
 
   proc perspective*(width, height, zNear, zFar: float32;
       oglNdc: bool): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
     let
-      d = zFar - zNear
-      aa = if oglNdc: (zFar + zNear) / d else: zFar / d
-      bb = if oglNdc: (2.0'f32 * zNear * zFar) / d else: zNear * aa
+      # d = zFar - zNear
+      # aa = if oglNdc: (zFar + zNear) / d else: zFar / d
+      # bb = if oglNdc: (2.0'f32 * zNear * zFar) / d else: zNear * aa
+      fRange = zFar / (zNear - zFar)
+
       col0 = setVector(width, 0.0'f32, 0.0'f32, 0.0'f32)
       col1 = setVector(0.0'f32, height, 0.0'f32, 0.0'f32)
-      col2 = setVector(0.0'f32, 0.0'f32, -aa, -bb)
-      col3 = setVector(0.0'f32, 0.0'f32, -1.0'f32, 0.0'f32)
+      col2 = setVector(0.0'f32, 0.0'f32, fRange, -1.0'f32)
+      col3 = setVector(0.0'f32, 0.0'f32, fRange * zNear, 0.0'f32)
 
     result = setMatrix(col0, col1, col2, col3)
 
   proc perspectiveFov*(fovAngleY, aspectRatio, nearZ, farZ: float32;
       oglNdc: bool): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
+    # let
+    #   height = 1.0'f32 / tanScalar(fovAngleY * 0.5'f32)
+    #   width = height / aspectRatio
+    
     var sinFov, cosFov: float32
     sinCosScalar(0.5'f32 * fovAngleY, addr(sinFov), addr(cosFov))
 
     let
       height = cosFov / sinFov
       width = height / aspectRatio
+    
+    result = perspective(width, height, nearZ, farZ, oglNdc)
+
+
+
     result = perspective(width, height, nearZ, farZ, oglNdc)
 
   proc mulMatrix*(lhs, rhs: Matrix4x4f): Matrix4x4f {.codegendecl: "__declspec(safebuffers) __forceinline $# __vectorcall $#$#", inline.} =
