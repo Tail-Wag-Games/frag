@@ -24,3 +24,10 @@ task compileShaders, "compile shaders":
 
 task build3dPlugin, "build 3d plugin":
   exec "nim c --debugger:native --threads:on --app:lib --out:three_d.dll .\\src\\three_d_plugin.nim"
+
+task buildInputPlugin, "build input plugin":
+  exec "nim c --debugger:native --threads:on --app:lib --out:input.dll .\\src\\input_plugin.nim"
+
+task buildPlugins, "build plugins":
+  exec "nim build3dPlugin"
+  exec "nim buildInputPlugin"
