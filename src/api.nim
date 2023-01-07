@@ -243,6 +243,8 @@ template toId*(idx: int): uint32 = idx.uint32 + 1
 template toIndex*(id: uint32): int = id.int - 1
 
 const
+  MaxKeycodes* = 512
+
   atCore* = ApiType(0)
   atPlugin* = ApiType(1)
   atApp* = ApiType(2)
@@ -345,4 +347,5 @@ when defined host:
 
   proc openPlugin*(ctx: ptr Plugin; fullpath: cstring): bool {.importc: "cr_plugin_open".}
   proc updatePlugin*(ctx: ptr Plugin; reloadCheck: bool = true): int32 {.importc: "cr_plugin_update", discardable.}
+  proc pluginEvent*(ctx: ptr Plugin; e: pointer) {.importc: "cr_plugin_event".}
   proc closePlugin*(ctx: ptr Plugin) {.importc: "cr_plugin_close".}

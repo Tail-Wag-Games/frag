@@ -1,5 +1,6 @@
 import std/[dynlib, os],
-       api, fuse, logging, primer
+       api, fuse, logging, primer,
+       sokol/app as sapp
 
 type
   InjectedApi = object
@@ -120,6 +121,10 @@ proc load*(name: cstring): bool {.cdecl.} =
   loadAbs(filepath, false, [], 0)
   result = true
 
+proc broadcastPluginEvent*(e: ptr sapp.Event) =
+  for i in 0 ..< len(ctx.pluginUpdateOrder):
+    pluginEvent(addr(ctx.plugins[ctx.pluginUpdateOrder[i]].data.plugin), e)
+
 proc initPlugins*() =
   block outer:
     for i in 0 ..< ctx.pluginUpdateOrder.len():
@@ -127,8 +132,8 @@ proc initPlugins*() =
         idx = ctx.pluginUpdateOrder[i]
         handle = ctx.plugins[idx].addr
 
-      if not openPlugin(handle.data.plugin.addr, cast[cstring](
-          addr handle.filepath[0])).bool:
+      if not openPlugin(addr(handle.data.plugin), cast[cstring](
+          addr(handle.filepath[0]))).bool:
         logWarn("failed initialing plugin: $#", handle.filepath)
         break outer
 

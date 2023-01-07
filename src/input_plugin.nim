@@ -1,4 +1,5 @@
-import api, input
+import api, input,
+       sokol/app as sapp
 
 var
   pluginApi {.fragState.}: ptr PluginApi
@@ -14,6 +15,9 @@ proc fragPlugin(plugin: ptr Plugin; operation: PluginOperation): int32 {.exportc
     pluginApi.injectApi("input", 0, addr(inputApi))
   else:
     discard
+
+proc fragPluginEventHandler(e: ptr sapp.Event) {.cdecl, exportc, dynlib.} =
+  discard
 
 proc fragPluginInfo(info: ptr PluginInfo) {.cdecl, exportc, dynlib.} =
   info.name[0..31] = toOpenArray("input", 0, 31)

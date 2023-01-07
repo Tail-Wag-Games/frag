@@ -8,6 +8,7 @@ type
 
     appFilepath: string
     windowSize: Float2f
+    keysPressed: array[MaxKeycodes, bool]
 
 var 
   ctx: AppState
@@ -66,6 +67,32 @@ proc frame() {.cdecl.} =
 
 proc cleanup() {.cdecl.} =
   linchpin.shutdown()
+
+proc event(e: ptr sapp.Event) {.cdecl.} =
+  # assert(sizeof(AppEvent) == sizeof(sapp.Event), "sizeof sapp_event does not match sizeof AppEvent")
+
+  case e.`type`:
+  of eventTypeResized:
+    ctx.cfg.windowWidth = e.windowWidth
+    ctx.cfg.windowHeight = e.windowHeight
+    ctx.windowSize = Float2f(x: float32(e.windowWidth), y: float32(e.windowHeight))
+    discard
+  of eventTypeSuspended:
+    discard
+  of eventTypeIconified:
+    discard
+  of eventTypeResumed:
+    discard
+  of eventTypeRestored:
+    discard
+  of eventTypeKeyDown:
+    ctx.keysPressed[int32(e.keyCode)] = true
+  of eventTypeKeyUp:
+    ctx.keysPressed[int32(e.keyCode)] = false
+  else:
+    discard
+
+  broadcastPluginEvent(e)
 
 proc run*() =
   block:
@@ -132,6 +159,7 @@ proc run*() =
       initCb: init,
       frameCb: frame,
       cleanupCb: cleanup,
+      eventCb: event,
       windowTitle: cfg.appTitle,
       width: cfg.windowWidth,
       height: cfg.windowHeight,
