@@ -1,5 +1,4 @@
-import cglm,
-       api
+import api, tnt
 
 type
   DebugVertex* = object
