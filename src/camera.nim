@@ -1,19 +1,19 @@
-import api, fuse
+import api, fuse, tnt
 
-proc init(cam: ptr Camera; fovDeg: float32; viewport: Rectangle; fnear,
-    ffar: float32) {.cdecl.} =
-  cam.right = Float3fUnitX
-  cam.up = Float3fUnitZ
-  cam.forward = Float3fUnitY
-  cam.pos = Float3fZero
+proc init(cam: ptr Camera; fovDeg: float32; viewport: Rectangle; fNear,
+    fFar: float32) {.cdecl.} =
+  cam.right = vec3(1.0'f32, 0.0'f32, 0.0'f32)
+  cam.up = vec3(0.0'f32, 0.0'f32, 1.0'f32)
+  cam.forward = vec3(0.0'f32, 1.0'f32, 0.0'f32)
+  cam.pos = vec3(0.0'f32, 0.0'f32, 0.0'f32)
 
-  storeQuat(cam.quat.addr, identityQuat())
+  cam.quat = identityQuat()
   cam.fov = fovDeg
-  cam.fnear = fnear
-  cam.ffar = ffar
+  cam.fNear = fNear
+  cam.fFar = fFar
   cam.viewport = viewport
 
-proc calcFrustumPointsRange(cam: ptr Camera; frustum: array[8, Float3f]; fNear,
+proc calcFrustumPointsRange(cam: ptr Camera; frustum: ptr Frustum; fNear,
     fFar: float32) {.cdecl.} =
   let
     fov = toRad(cam.fov)
@@ -21,115 +21,108 @@ proc calcFrustumPointsRange(cam: ptr Camera; frustum: array[8, Float3f]; fNear,
     h = cam.viewport.yMax - cam.viewport.yMin
     aspect = w / h
 
-    xAxis = setVector(cam.right.x, cam.right.y, cam.right.z)
-    yAxis = setVector(cam.up.x, cam.up.y, cam.up.z)
-    zAxis = setVector(cam.forward.x, cam.forward.y, cam.forward.z)
-    pos = setVector(cam.pos.x, cam.pos.y, cam.pos.z)
+    xAxis = cam.right
+    yAxis = cam.up
+    zAxis = cam.forward
+    pos = cam.pos
 
-    nearPlaneH = tanScalar(fov * 0.5'f32) * fNear
+    nearPlaneH = tan(fov * 0.5'f32) * fNear
     nearPlaneW = nearPlaneH * aspect
 
-    farPlaneH = tanScalar(fov * 0.5'f32) * fFar
+    farPlaneH = tan(fov * 0.5'f32) * fFar
     farPlaneW = farPlaneH * aspect
 
-    centerNear = addVector(mulVector(zAxis, fNear), pos)
-    centerFar = addVector(mulVector(zAxis, fFar), pos)
+    centerNear = (zAxis * fNear) + pos
+    centerFar = (zAxis * fFar) + pos
 
-    xNearScaled = mulVector(xAxis, nearPlaneW)
-    xFarScaled = mulVector(xAxis, farPlaneW)
-    yNearScaled = mulVector(yAxis, nearPlaneH)
-    yFarScaled = mulVector(yAxis, farPlaneH)
+    xNearScaled = xAxis * nearPlaneW
+    xFarScaled = xAxis * farPlaneW
+    yNearScaled = yAxis * nearPlaneH
+    yFarScaled = yAxis * farPlaneH
 
-  storeVector3(addr(frustum[0]), subVector(centerNear, addVector(xNearScaled, yNearScaled)))
-  storeVector3(addr(frustum[1]), addVector(centerNear, subVector(xNearScaled, yNearScaled)))
-  storeVector3(addr(frustum[2]), addVector(centerNear, addVector(xNearScaled, yNearScaled)))
-  storeVector3(addr(frustum[3]), subVector(centerNear, subVector(xNearScaled, yNearScaled)))
+  frustum[0] = vec4(centerNear - (xNearScaled + yNearScaled), 0.0'f32)
+  frustum[1] = vec4(centerNear + (xNearScaled - yNearScaled), 0.0'f32)
+  frustum[2] = vec4(centerNear + (xNearScaled + yNearScaled), 0.0'f32)
+  frustum[3] = vec4(centerNear - (xNearScaled - yNearScaled), 0.0'f32)
 
-  storeVector3(addr(frustum[4]), subVector(centerFar, addVector(xFarScaled, yFarScaled)))
-  storeVector3(addr(frustum[5]), subVector(centerFar, subVector(xFarScaled, yFarScaled)))
-  storeVector3(addr(frustum[6]), addVector(centerFar, addVector(xFarScaled, yFarScaled)))
-  storeVector3(addr(frustum[7]), addVector(centerFar, subVector(xFarScaled, yFarScaled)))
+  frustum[4] = vec4(centerFar - (xFarScaled + yFarScaled), 0.0'f32)
+  frustum[5] = vec4(centerFar - (xFarScaled - yFarScaled), 0.0'f32)
+  frustum[6] = vec4(centerFar + (xFarScaled + yFarScaled), 0.0'f32)
+  frustum[7] = vec4(centerFar + (xFarScaled - yFarScaled), 0.0'f32)
 
-
-proc perspective(cam: ptr Camera; proj: ptr Matrix4x4f) {.cdecl.} =
+proc perspective(cam: ptr Camera; proj: ptr Mat4) {.cdecl.} =
   assert(proj != nil)
 
   let
     w = cam.viewport.xMax - cam.viewport.xMin
     h = cam.viewport.yMax - cam.viewport.yMin
 
-  proj[] = perspectiveFov(toRad(cam.fov), w / h, cam.fnear, cam.ffar,
-      gfxApi.glFamily())
+  proj[] = perspective(toRad(cam.fov), w / h, cam.fNear, cam.fFar)
 
-proc view(cam: ptr Camera; view: ptr Matrix4x4f) {.cdecl.} =
+proc view(cam: ptr Camera; view: ptr Mat4) {.cdecl.} =
   assert(view != nil)
 
-  let
-    zAxis = cam.forward
-    xAxis = cam.right
-    yAxis = cam.up
+  view[] = lookAt(cam.pos, cam.pos + cam.forward, cam.up)
 
-    col0 = setVector(xAxis.x, -yAxis.x, zAxis.x, 0.0'f32)
-    col1 = setVector(xAxis.y, -yAxis.y, zAxis.y, 0.0'f32)
-    col2 = setVector(xAxis.z, -yAxis.z, zAxis.z, 0.0'f32)
-    col3 = setVector(
-      -castScalar(dotVector3(setVector(cam.pos.x, cam.pos.y, cam.pos.z),
-          setVector(xAxis.x, xAxis.y, xAxis.z))),
-      -castScalar(dotVector3(setVector(cam.pos.x, cam.pos.y, cam.pos.z),
-          setVector(yAxis.x, yAxis.y, yAxis.z))),
-      castScalar(dotVector3(setVector(cam.pos.x, cam.pos.y, cam.pos.z),
-          setVector(zAxis.x, zAxis.y, zAxis.z))),
-      1.0'f32
-    )
-
-  view[] = setMatrix(col0, col1, col2, col3)
-
-proc lookAt(cam: ptr Camera; pos, target, up: Float3f) =
-  storeVector3(cam.forward.addr, normVector3(subVector(setVector(target.x,
-      target.y, target.z), setVector(pos.x, pos.y, pos.z))))
-  storeVector3(cam.right.addr, normVector3(crossVector3(setVector(up.x, up.y,
-      up.z), setVector(cam.forward.x, cam.forward.y, cam.forward.z))))
-  storeVector3(cam.up.addr, crossVector3(setVector(cam.forward.x, cam.forward.y,
-      cam.forward.z), setVector(cam.right.x, cam.right.y, cam.right.z)))
+proc lookAt(cam: ptr Camera; pos, target, up: Vec3) =
+  cam.forward = normalize(target - pos)
+  cam.right = normalize(cross(cam.forward, up))
+  cam.up = cross(cam.right, cam.forward)
   cam.pos = pos
 
-  let m = setMatrix(
-    setVector(cam.right.x, -cam.up.x, cam.forward.x, 0.0'f32),
-    setVector(cam.right.y, -cam.up.y, cam.forward.y, 0.0'f32),
-    setVector(cam.right.z, -cam.up.z, cam.forward.z, 0.0'f32),
-    setVector(0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32)
+  let m = mat4(
+    [cam.right.x, cam.right.y, cam.right.z, 0.0'f32],
+    [-cam.up.x, -cam.up.y, -cam.up.z, 0.0'f32],
+    [cam.forward.x, cam.forward.y, cam.forward.z, 0.0'f32],
+    [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32]
   )
-  storeQuat(cam.quat.addr, quatFromMatrix(m.xAxis, m.yAxis, m.zAxis))
-  # let
-  #   l = normVector3(subVector(setVector(target.x, target.y, target.z),
-  #     setVector(pos.x, pos.y, pos.z)))
-  #   r = normVector3(crossVector3(setVector(up.x, up.y, up.z),
-  #     l))
-  #   u = crossVector3(l, r)
 
-  # cam.pos = pos
-  # storeVector3(addr(cam.forward), l)
-  # storeVector3(addr(cam.right), r)
-  # storeVector3(addr(cam.up), u)
+  cam.quat = quatFor(cam.forward, cam.up)
 
-proc initFps(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; fnear,
-    ffar: float32) {.cdecl.} =
-  init(cam.cam.addr, fovDeg, viewport, fnear, ffar)
-  cam.pitch = 0
-  cam.yaw = cam.pitch
+proc initFps(fps: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; fNear,
+    fFar: float32) {.cdecl.} =
+  init(fps.cam.addr, fovDeg, viewport, fnear, fFar)
+  fps.pitch = 0
+  fps.yaw = fps.pitch
 
-proc lookAtFps(cam: ptr FpsCamera; pos, target, up: Float3f) {.cdecl.} =
-  lookAt(cam.cam.addr, pos, target, up)
+proc lookAtFps(fps: ptr FpsCamera; pos, target, up: Vec3) {.cdecl.} =
+  lookAt(fps.cam.addr, pos, target, up)
 
-  let euler = getQuatAxis(setQuat(cam.cam.quat.x, cam.cam.quat.y,
-      cam.cam.quat.z, cam.cam.quat.w))
-  cam.pitch = getVectorX(euler)
-  cam.yaw = getVectorZ(euler)
+  let angles = eulerAngles(mat4(fps.cam.quat))  
+  fps.pitch = angles.x
+  fps.yaw = angles.z
+
+proc updateRot(cam: ptr Camera) =
+  let m = mat4(cam.quat)
+
+  cam.right = m[0].xyz
+  cam.up = m[1].xyz
+  cam.forward = -1.0 * m[2].xyz
+  
+proc pitchFps(fps: ptr FpsCamera; pitch: float32) {.cdecl.} =
+  fps.pitch -= pitch
+  fps.cam.quat = quat(fps.yaw, vec3(0, 0, 1)) * quat(fps.pitch, vec3(1, 0, 0))
+  updateRot(addr(fps.cam))
+
+proc yawFps(fps: ptr FpsCamera; yaw: float32) {.cdecl.} =
+  fps.yaw -= yaw
+  fps.cam.quat = quat(fps.yaw, vec3(0, 0, 1)) * quat(fps.pitch, vec3(1, 0, 0))
+  updateRot(addr(fps.cam))
+
+proc forwardFps(fps: ptr FpsCamera; forward: float32) {.cdecl.} =
+  fps.cam.pos += (fps.cam.forward * forward)
+
+proc strafeFps(fps: ptr FpsCamera; strafe: float32) {.cdecl.} =
+  fps.cam.pos += (fps.cam.right * strafe)
 
 cameraApi = CameraApi(
   perspective: perspective,
   view: view,
   calcFrustumPointsRange: calcFrustumPointsRange,
   initFps: initFps,
-  lookAtFps: lookAtFps
+  lookAtFps: lookAtFps,
+  pitchFps: pitchFps,
+  yawFps: yawFps,
+  forwardFps: forwardFps,
+  strafeFps: strafeFps
 )

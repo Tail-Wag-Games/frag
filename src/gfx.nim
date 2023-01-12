@@ -284,7 +284,6 @@ proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
 proc runBeginPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  echo "running begin pass callback!"
   # let passAction = cast[ptr PassAction](buff)
   # buff += sizeof(PassAction)
   # let pass = cast[ptr Pass](buff)[]

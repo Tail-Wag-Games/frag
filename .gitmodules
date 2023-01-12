@@ -13,3 +13,6 @@
 [submodule "thirdparty/glslcc"]
 	path = thirdparty/glslcc
 	url = git@github.com:Tail-Wag-Games/glslcc.git
+[submodule "thirdparty/cglm"]
+	path = thirdparty/cglm
+	url = git@github.com:Tail-Wag-Games/cglm.git

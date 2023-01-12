@@ -1,9 +1,9 @@
 import std/[atomics, macros],
-       sokol/gfx as sgfx,
-       config, io, smath
+       sokol/app as sapp, sokol/gfx as sgfx,
+       config, tnt, io
 
 export
-  config, smath
+  config
 
 type
   GfxStage* = object
@@ -26,6 +26,8 @@ type
   ApiType* = distinct int32
 
   CoreApi* = object
+    deltaTick*: proc(): uint64 {.cdecl.}
+    deltaTime*: proc(): float32 {.cdecl.}
     frameIndex*: proc(): int64 {.cdecl.}
     testAndDelJob*: proc(job: Job): bool {.cdecl.}
     numJobThreads*: proc(): int32 {.cdecl.}
@@ -46,7 +48,7 @@ type
   PluginEvent* = distinct uint32
 
   MainCallback* = proc(ctx: ptr Plugin; e: PluginEvent)
-  EventHandlerCallback* = proc(e: ptr AppEvent)
+  EventHandlerCallback* = proc(e: ptr sapp.Event)
 
   PluginInfo* = object
     version*: uint32
@@ -68,8 +70,11 @@ type
   AppApi* = object
     width*: proc(): int32 {.cdecl.}
     height*: proc(): int32 {.cdecl.}
+    keyPressed*: proc(key: Keycode): bool {.cdecl.}
     name*: proc(): cstring {.cdecl.}
-    windowSize*: proc(sizie: ptr Float2f) {.cdecl.}
+    windowSize*: proc(sizie: ptr Vec2) {.cdecl.}
+    captureMouse*: proc() {.cdecl.}
+    releaseMouse*: proc() {.cdecl.}
 
   ShaderCodeType* = distinct uint32
   ShaderLang* = distinct uint32
@@ -207,14 +212,14 @@ type
         flags: AssetLoadFlag; tags: uint32): AssetHandle {.cdecl.}
 
   Camera* = object
-    forward*: Float3f
-    right*: Float3f
-    up*: Float3f
-    pos*: Float3f
+    forward*: Vec3
+    right*: Vec3
+    up*: Vec3
+    pos*: Vec3
 
-    quat*: Float4f
-    ffar*: float32
-    fnear*: float32
+    quat*: Versor
+    fFar*: float32
+    fNear*: float32
     fov*: float32
     viewport*: Rectangle
 
@@ -224,12 +229,16 @@ type
     yaw*: float32
 
   CameraApi* = object
-    perspective*: proc(cam: ptr Camera; proj: ptr Matrix4x4f) {.cdecl.}
-    view*: proc(cam: ptr Camera; view: ptr Matrix4x4f) {.cdecl.}
-    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: array[8, Float3f]; fNear, fFar: float32) {.cdecl}
+    perspective*: proc(cam: ptr Camera; proj: ptr Mat4) {.cdecl.}
+    view*: proc(cam: ptr Camera; view: ptr Mat4) {.cdecl.}
+    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr Frustum; fNear, fFar: float32) {.cdecl}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle;
-        fnear, ffar: float32) {.cdecl.}
-    lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Float3f) {.cdecl.}
+        fNear, fFar: float32) {.cdecl.}
+    lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Vec3) {.cdecl.}
+    pitchFps*: proc(cam: ptr FpsCamera; pitch: float32) {.cdecl.}
+    yawFps*: proc(cam: ptr FpsCamera; yaw: float32) {.cdecl.}
+    forwardFps*: proc(cam: ptr FpsCamera; forward: float32) {.cdecl.}
+    strafeFps*: proc(cam: ptr FpsCamera; strafe: float32) {.cdecl.}
 
   JobPriority* = enum
     jpHigh

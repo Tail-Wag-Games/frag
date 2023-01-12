@@ -1,10 +1,16 @@
 import std/cpuinfo,
-       sokol/gfx as sgfx, sokol/app as sapp,
+       sokol/gfx as sgfx, sokol/app as sapp, sokol/time as stime,
        api, asset, fuse, gfx, job, plugin, vfs
 
 type
   CoreContext = object
     frameIndex: int64
+    elapsedTick: uint64
+    deltaTick: uint64
+    lastTick: uint64
+    fpsMean: float32
+    fpsFrame: float32
+
     jobCtx: ptr JobContext
 
     numThreads: int32
@@ -15,6 +21,12 @@ var
   passAction = PassAction(
     colors: [ ColorAttachmentAction( action: actionClear, value: (1, 0, 0, 0)) ]
   )
+
+proc deltaTick(): uint64 {.cdecl.} =
+  result = ctx.deltaTick
+
+proc deltaTime(): float32 {.cdecl.} =
+  result = float32(sec(ctx.deltaTick))
 
 proc frameIndex(): int64 {.cdecl.} =
   result = ctx.frameIndex
@@ -50,6 +62,22 @@ proc init*(cfg: var Config) =
   plugin.init(cfg.pluginPath)
 
 proc frame*() =
+  ctx.deltaTick = laptime(addr(ctx.lastTick))
+  ctx.elapsedTick += ctx.deltaTick
+
+  let 
+    deltaTick = ctx.deltaTick
+    dt = float32(sec(deltaTick))
+  
+  if deltaTick > 0:
+    var
+      aFps = ctx.fpsMean
+      fps = 1.0'f64 / dt
+    
+    aFps += (fps - aFps) / float64(ctx.frameIndex)
+    ctx.fpsMean = float32(aFps)
+    ctx.fpsFrame = float32(fps)
+
   vfs.update()
   
   plugin.update()
@@ -68,6 +96,8 @@ proc shutdown*() =
   vfs.shutdown()
 
 coreApi = CoreApi(
+  deltaTick: deltaTick,
+  deltaTime: deltaTime,
   frameIndex: frameIndex,
   testAndDelJob: testAndDelJob,
   numJobThreads: numJobThreads,

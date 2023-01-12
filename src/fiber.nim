@@ -1,5 +1,4 @@
-import math,
-       primer
+import primer
 
 when defined(macosx):
   {.link: "asm/make_combined_all_macho_gas.S.o".}
@@ -57,27 +56,6 @@ proc alignPageSize*(size: uint): uint =
   result = pageCnt * pageSz
 
 proc fiberStackInit*(fStack: ptr FiberStack; size: uint): bool =
-  # var
-  #   ssize: int
-  #   vp, sptr: pointer    
-  #   desiredSize = size
-
-  # if desiredSize == 0:
-  #   desiredSize = defaultStackSize
-  # desiredSize = max(desiredSize, minStackSize)
-
-  # let maxSize = maxSize()
-  # if maxSize > 0:
-  #   desiredSize = min(desiredSize, maxSize)
-
-  # let pages = floor(float(desiredSize) / float(pageSize()))
-  # if pages < 2:
-  #   return result
-
-  # let size2 = int(pages * float(pageSize()))
-  # assert(size2 != 0 and desiredSize != 0)
-  # assert(size2 <= desiredSize)
-
   var
     p: pointer
     stackSize = if size == 0: defaultStackSize else: size

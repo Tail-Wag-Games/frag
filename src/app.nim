@@ -1,5 +1,5 @@
 import std / [dynlib, os, parseopt, strformat],
-       sokol/app as sapp,
+       cglm, sokol/app as sapp, sokol/time as stime,
        api, fuse, linchpin, plugin
 
 type
@@ -7,10 +7,10 @@ type
     cfg: Config
 
     appFilepath: string
-    windowSize: Float2f
+    windowSize: Vec2
     keysPressed: array[MaxKeycodes, bool]
 
-var 
+var
   ctx: AppState
 
   defaultName: array[64, char]
@@ -25,20 +25,31 @@ proc messageBox(msg: string) =
   when defined(Windows):
     MessageBoxA(HWND(0), msg, "frag", MB_OK or MB_ICONERROR)
 
-proc saveCfgString(cacheStr: cstring, str: var cstring) = 
+proc saveCfgString(cacheStr: cstring, str: var cstring) =
   if str != nil:
     copyMem(addr cacheStr[0], addr str[0], sizeof(str))
     str = cacheStr
   else:
     str = cacheStr
 
-proc saveCfgString(cacheStr: openArray[char], str: var cstring) = 
+proc saveCfgString(cacheStr: openArray[char], str: var cstring) =
   if str != nil:
     copyMem(addr cacheStr[0], addr str[0], sizeof(str))
-  
+
   str = cast[cstring](addr(cacheStr[0]))
 
-proc windowSize(size: ptr Float2f) {.cdecl.} =
+proc keyPressed(key: KeyCode): bool {.cdecl.} =
+  result = ctx.keysPressed[ord(key)]
+
+proc captureMouse() {.cdecl.} =
+  when defined(Windows):
+    SetCapture(cast[HWND](win32GetHwnd()))
+
+proc releaseMouse() {.cdecl.} =
+  when defined(Windows):
+    ReleaseCapture()
+
+proc windowSize(size: ptr Vec2) {.cdecl.} =
   assert size != nil
   size[] = ctx.windowSize
 
@@ -55,7 +66,7 @@ proc init() {.cdecl.} =
 
     if not pluginApi.load(ctx.cfg.plugins[i]):
       quit(QuitFailure)
-    
+
     inc(numPlugins)
 
   plugin.loadAbs(cast[cstring](addr ctx.appFilepath[0]), true, ctx.cfg.plugins, numPlugins)
@@ -75,7 +86,7 @@ proc event(e: ptr sapp.Event) {.cdecl.} =
   of eventTypeResized:
     ctx.cfg.windowWidth = e.windowWidth
     ctx.cfg.windowHeight = e.windowHeight
-    ctx.windowSize = Float2f(x: float32(e.windowWidth), y: float32(e.windowHeight))
+    ctx.windowSize = vec2(float32(e.windowWidth), float32(e.windowHeight))
     discard
   of eventTypeSuspended:
     discard
@@ -96,6 +107,8 @@ proc event(e: ptr sapp.Event) {.cdecl.} =
 
 proc run*() =
   block:
+    stime.setup()
+
     var appFilepath: string
 
     for kind, key, val in getopt():
@@ -126,7 +139,7 @@ proc run*() =
       messageBox(&"application plugin at path: {appFilepath} does not export a procedure named `fragApp`")
       break
 
-    let 
+    let
       (_, sAppFilename, _) = splitFile(appFilepath)
       appFilename = cstring(sAppFilename)
     defaultName[0..high(appFilepath)] = toOpenArray(appFilename, 0, high(appFilepath))
@@ -153,7 +166,7 @@ proc run*() =
 
     ctx.cfg = cfg
     ctx.appFilepath = appFilepath
-    ctx.windowSize = float2f(cfg.windowWidth.float32, cfg.windowHeight.float32)
+    ctx.windowSize = vec2(float32(cfg.windowWidth), float32(cfg.windowHeight))
 
     sapp.run(sapp.Desc(
       initCb: init,
@@ -170,5 +183,8 @@ appApi = AppApi(
   name: name,
   windowSize: windowSize,
   width: cWidth,
-  height: cHeight
+  height: cHeight,
+  keyPressed: keyPressed,
+  captureMouse: captureMouse,
+  releaseMouse: releaseMouse
 )
