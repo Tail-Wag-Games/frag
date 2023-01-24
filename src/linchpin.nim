@@ -19,7 +19,7 @@ var
   ctx: CoreContext
 
   passAction = PassAction(
-    colors: [ ColorAttachmentAction( action: actionClear, value: (1, 0, 0, 0)) ]
+    colors: [ColorAttachmentAction(action: actionClear, value: (1, 0, 0, 0))]
   )
 
 proc deltaTick(): uint64 {.cdecl.} =
@@ -30,6 +30,12 @@ proc deltaTime(): float32 {.cdecl.} =
 
 proc frameIndex(): int64 {.cdecl.} =
   result = ctx.frameIndex
+
+proc dispatchJob(count: int32; callback: proc(start, finish, threadIdx: int32;
+    userData: pointer) {.cdecl.}; userData: pointer; priority: JobPriority;
+    tags: uint32): Job {.cdecl.} =
+  assert(ctx.jobCtx != nil)
+  result = job.dispatch(ctx.jobCtx, count, callback, userData, priority, tags)
 
 proc testAndDelJob(j: Job): bool {.cdecl.} =
   assert(ctx.jobCtx != nil)
@@ -43,7 +49,8 @@ proc jobThreadIndex(): int32 {.cdecl.} =
   result = jobThreadIndex(ctx.jobCtx)
 
 proc init*(cfg: var Config) =
-  var numWorkerThreads = if cfg.numJobThreads >= 0 : cfg.numJobThreads else: int32(countProcessors() - 1)
+  var numWorkerThreads = if cfg.numJobThreads >=
+      0: cfg.numJobThreads else: int32(countProcessors() - 1)
   numWorkerThreads = max(1, numWorkerThreads)
   ctx.numThreads = numWorkerThreads + 1
 
@@ -65,21 +72,21 @@ proc frame*() =
   ctx.deltaTick = laptime(addr(ctx.lastTick))
   ctx.elapsedTick += ctx.deltaTick
 
-  let 
+  let
     deltaTick = ctx.deltaTick
     dt = float32(sec(deltaTick))
-  
+
   if deltaTick > 0:
     var
       aFps = ctx.fpsMean
       fps = 1.0'f64 / dt
-    
+
     aFps += (fps - aFps) / float64(ctx.frameIndex)
     ctx.fpsMean = float32(aFps)
     ctx.fpsFrame = float32(fps)
 
   vfs.update()
-  
+  asset.update()
   plugin.update()
 
   gfx.executeCommandBuffers()
@@ -87,7 +94,7 @@ proc frame*() =
   sgfx.commit()
 
   inc(ctx.frameIndex)
-  
+
 proc shutdown*() =
   plugin.shutdown()
   gfx.shutdown()
@@ -99,6 +106,7 @@ coreApi = CoreApi(
   deltaTick: deltaTick,
   deltaTime: deltaTime,
   frameIndex: frameIndex,
+  dispatchJob: dispatchJob,
   testAndDelJob: testAndDelJob,
   numJobThreads: numJobThreads,
   jobThreadIndex: jobThreadIndex

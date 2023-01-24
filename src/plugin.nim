@@ -117,7 +117,6 @@ proc load*(name: cstring): bool {.cdecl.} =
   assert(not ctx.loaded, "unable to load additional plugins after `initPlugins` has been invoked")
 
   let filepath = cstring(joinPath(ctx.pluginPath, $name) & ".dll")
-  echo filepath
   loadAbs(filepath, false, [], 0)
   result = true
 

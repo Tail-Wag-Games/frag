@@ -29,6 +29,9 @@ type
     deltaTick*: proc(): uint64 {.cdecl.}
     deltaTime*: proc(): float32 {.cdecl.}
     frameIndex*: proc(): int64 {.cdecl.}
+    dispatchJob*: proc(count: int32; callback: proc(start, finish,
+        threadIdx: int32; userData: pointer) {.cdecl.}; userData: pointer;
+        priority: JobPriority; tags: uint32): Job {.cdecl.}
     testAndDelJob*: proc(job: Job): bool {.cdecl.}
     numJobThreads*: proc(): int32 {.cdecl.}
     jobThreadIndex*: proc(): int32 {.cdecl.}
@@ -56,7 +59,7 @@ type
     numDeps*: int32
     name*: array[32, char]
     desc*: array[256, char]
-  
+
   PluginInfoCb* = proc(outInfo: ptr PluginInfo) {.cdecl.}
 
   PluginApi* = object
@@ -81,33 +84,33 @@ type
   ShaderStage* = distinct uint32
 
   ShaderReflInput* = object
-    name*: string
-    semantic*: string
-    semanticIndex*: int
+    name*: array[32, char]
+    semantic*: array[32, char]
+    semanticIndex*: int32
     vertexFormat*: sgfx.VertexFormat
 
   ShaderReflUniformBuffer* = object
-    name*: string
-    numBytes*: int
-    binding*: int
-    arraySize*: int
+    name*: array[32, char]
+    numBytes*: int32
+    binding*: int32
+    arraySize*: int32
 
   ShaderReflBuffer* = object
-    name*: string
-    numBytes*: int
-    binding*: int
-    arrayStride*: int
+    name*: array[32, char]
+    numBytes*: int32
+    binding*: int32
+    arrayStride*: int32
 
   ShaderReflTexture* = object
-    name*: string
-    binding*: int
+    name*: array[32, char]
+    binding*: int32
     imageType*: sgfx.ImageType
 
   ShaderRefl* = object
     lang*: ShaderLang
     stage*: ShaderStage
-    profileVersion*: int
-    sourceFile*: string
+    profileVersion*: int32
+    sourceFile*: array[32, char]
     inputs*: seq[ShaderReflInput]
     textures*: seq[ShaderReflTexture]
     storageImages*: seq[ShaderReflTexture]
@@ -124,14 +127,44 @@ type
   Shader* = object
     shd*: sgfx.Shader
     info*: ShaderInfo
-  
+
+  TextureLoadParams* = object
+    firstMip*: int32
+    minFilter*: Filter
+    magFilter*: Filter
+    wrapU*: Wrap
+    wrapV*: Wrap
+    wrapW*: Wrap
+    fmt*: PixelFormat
+    aniso*: int32
+    srgb*: int32
+
+  DepthLayers* {.union.} = object
+    depth*: int32
+    layers*: int32
+
+  TextureInfo* = object
+    nameHandle*: uint32
+    imageType*: ImageType
+    format*: PixelFormat
+    memSizeBytes*: int32
+    width*: int32
+    height*: int32
+    dl*: DepthLayers
+    mips*: int32
+    bpp*: int32
+
+  Texture* = object
+    img*: sgfx.Image
+    info*: TextureInfo
+
   VertexAttribute* = object
     semantic*: cstring
     semanticIndex*: int32
     offset*: int32
     format*: VertexFormat
     bufferIndex*: int32
-  
+
   VertexLayout* = object
     attributes*: array[maxVertexAttributes, VertexAttribute]
 
@@ -139,27 +172,41 @@ type
     begin*: proc(stage: GfxStage): bool {.cdecl.}
     finish*: proc() {.cdecl.}
 
-    beginDefaultPass*: proc(passAction: ptr PassAction; width, height: int32) {.cdecl.}
+    beginDefaultPass*: proc(passAction: ptr PassAction; width,
+        height: int32) {.cdecl.}
+    beginPass*: proc(pass: Pass; passAction: ptr PassAction) {.cdecl.}
     applyPipeline*: proc(pip: Pipeline) {.cdecl.}
     applyBindings*: proc(bindings: ptr Bindings) {.cdecl.}
-    applyUniforms*: proc(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer; numBytes: int32) {.cdecl.}
-    draw*: proc(baseElement: int32; numElements: int32; numInstances: int32) {.cdecl.}
+    applyUniforms*: proc(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer;
+        numBytes: int32) {.cdecl.}
+    draw*: proc(baseElement: int32; numElements: int32;
+        numInstances: int32) {.cdecl.}
+    dispatch*: proc(threadGroupX, threadGroupY, threadGroupZ: int32) {.cdecl.}
+    dispatchIndirect*: proc(buf: Buffer; offset: int32) {.cdecl.}
+    drawIndexedInstancedIndirect*: proc(buf: Buffer; offset: int32) {.cdecl.}
     finishPass*: proc() {.cdecl.}
-    appendBuffer*: proc(buf: Buffer; data: pointer; dataSize: int32): int32 {.cdecl.}
+    appendBuffer*: proc(buf: Buffer; data: pointer;
+        dataSize: int32): int32 {.cdecl.}
 
   GfxApi* = object
     staged*: GfxDrawApi
     glFamily*: proc(): bool {.cdecl.}
     makeBuffer*: proc(desc: ptr BufferDesc): sgfx.Buffer {.cdecl.}
+    makeImage*: proc(desc: ptr sgfx.ImageDesc): sgfx.Image {.cdecl.}
     makeShader*: proc(desc: ptr ShaderDesc): sgfx.Shader {.cdecl.}
     makePipeline*: proc(desc: ptr PipelineDesc): sgfx.Pipeline {.cdecl.}
+    makePass*: proc(desc: ptr PassDesc): sgfx.Pass {.cdecl.}
+    allocShader*: proc(): sgfx.Shader {.cdecl.}
+    initShader*: proc(shdId: sgfx.Shader; desc: ptr ShaderDesc) {.cdecl.}
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[
         uint32]; vsReflSize: uint32; vsReflJson: ptr UncheckedArray[uint32];
             fsDataSize: uint32;
         fsData: ptr UncheckedArray[uint32]; fsReflSize: uint32;
             fsReflJson: ptr UncheckedArray[uint32]): Shader {.cdecl.}
-    bindShaderToPipeline*: proc(shd: ptr Shader; pipDesc: ptr PipelineDesc; vl: ptr VertexLayout): ptr PipelineDesc {.cdecl.}
+    bindShaderToPipeline*: proc(shd: ptr Shader; pipDesc: ptr PipelineDesc;
+        vl: ptr VertexLayout): ptr PipelineDesc {.cdecl.}
+    getShader*: proc(shaderAssetHandle: AssetHandle): ptr api.Shader {.cdecl.}
 
   VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock;
       userData: pointer) {.cdecl.}
@@ -170,6 +217,7 @@ type
 
   VfsApi* = object
     mount*: proc(path, alias: cstring; watch: bool): bool {.cdecl.}
+    read*: proc(path: cstring; flags: VfsFlag): ptr MemBlock {.cdecl.}
     readAsync*: proc(path: cstring; flags: VfsFlag;
         readFn: VfsAsyncReadCallback; userData: pointer) {.cdecl.}
 
@@ -198,9 +246,9 @@ type
     onPrepare*: proc(params: ptr AssetLoadParams;
         mem: ptr MemBlock): AssetLoadData {.cdecl.}
     onLoad*: proc(data: ptr AssetLoadData; params: ptr AssetLoadParams;
-        mem: ptr MemBlock): AssetLoadData {.cdecl.}
+        mem: ptr MemBlock): bool {.cdecl.}
     onFinalize*: proc(data: ptr AssetLoadData; params: ptr AssetLoadParams;
-        mem: ptr MemBlock): AssetLoadData {.cdecl.}
+        mem: ptr MemBlock) {.cdecl.}
     onReload*: proc(handle: AssetHandle; prevAsset: Asset) {.cdecl.}
     onRelease*: proc(asset: Asset) {.cdecl.}
 
@@ -210,6 +258,7 @@ type
                                  forcedFlags: AssetLoadFlag) {.cdecl.}
     load*: proc(name: cstring; path: cstring; params: pointer;
         flags: AssetLoadFlag; tags: uint32): AssetHandle {.cdecl.}
+    asset*: proc(handle: AssetHandle): Asset {.cdecl.}
 
   Camera* = object
     forward*: Vec3
@@ -231,7 +280,8 @@ type
   CameraApi* = object
     perspective*: proc(cam: ptr Camera; proj: ptr Mat4) {.cdecl.}
     view*: proc(cam: ptr Camera; view: ptr Mat4) {.cdecl.}
-    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr Frustum; fNear, fFar: float32) {.cdecl}
+    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr Frustum; fNear,
+        fFar: float32) {.cdecl.}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle;
         fNear, fFar: float32) {.cdecl.}
     lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Vec3) {.cdecl.}

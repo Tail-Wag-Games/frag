@@ -1,0 +1,27 @@
+{
+    "rdocCaptureSettings": 1,
+    "settings": {
+        "autoStart": false,
+        "commandLine": "--run=C:\\Users\\Zach\\dev\\shell-shocked\\shell-shocked.dll",
+        "environment": [
+        ],
+        "executable": "C:\\Users\\Zach\\dev\\frag\\src\\frag.exe",
+        "inject": false,
+        "numQueuedFrames": 4,
+        "options": {
+            "allowFullscreen": true,
+            "allowVSync": true,
+            "apiValidation": true,
+            "captureAllCmdLists": false,
+            "captureCallstacks": false,
+            "captureCallstacksOnlyDraws": false,
+            "debugOutputMute": true,
+            "delayForDebugger": 0,
+            "hookIntoChildren": false,
+            "refAllResources": false,
+            "verifyBufferAccess": false
+        },
+        "queuedFrameCap": 25,
+        "workingDir": "C:/Users/Zach/dev/frag"
+    }
+}

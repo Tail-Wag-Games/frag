@@ -18,3 +18,15 @@ proc rectangle(xMin, yMin, xMax, yMax: float32): Rectangle =
 
 proc rectwh*(x, y, w, h: float32): Rectangle =
   result = rectangle(x, y, x + w, y + h)
+
+proc log2*(x: int32): int32 =
+  var p = nextPowerOfTwo(x)
+
+  while not bool(p and 1):
+    p = p shr 1
+    inc(result)
+
+proc max3*[T](x, y, z: T): T =
+  result = x
+  if result < y: result = y
+  if result < z: result = z

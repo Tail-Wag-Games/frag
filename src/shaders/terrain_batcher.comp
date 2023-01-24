@@ -1,0 +1,33 @@
+#version 450
+
+#include "cbt.glsl"
+
+//#pragma optionNV(unroll none)
+
+layout(std430, binding = 2)
+buffer DrawArraysIndirectCommandBuffer {
+    uint u_DrawArraysIndirectCommand[];
+};
+
+layout(std430, binding = 3)
+buffer DrawElementsIndirectCommandBuffer {
+    uint u_DrawElementsIndirectCommand[];
+};
+layout(std430, binding = 4)
+buffer DispatchIndirectCommandBuffer {
+    uint u_DispatchIndirectCommand[];
+};
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+    const int cbtID = 0;
+    uint nodeCount = cbt_NodeCount(cbtID);
+
+    u_DrawArraysIndirectCommand[0] = nodeCount;
+
+    u_DispatchIndirectCommand[0] = nodeCount / 256u + 1u;
+    u_DrawElementsIndirectCommand[0] = 3 << (2 * 3);
+    u_DrawElementsIndirectCommand[1] = nodeCount;
+}

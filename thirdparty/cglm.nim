@@ -43,6 +43,9 @@ from math import PI, almostEqual
 {.compile:"C:\\Users\\Zach\\dev\\frag\\thirdparty\\cglm\\src\\clipspace/project_zo.c".}
 
 type
+  RawIVec2 = array[2, int32]
+  IVec2* = object
+    raw: RawIVec2
   RawVec2 = array[2, float32]
   Vec2* = object
     raw: RawVec2
@@ -118,6 +121,13 @@ proc eq*(a, b: float32): bool =
 proc toRad*(deg: float32): float32 =
   result = deg * PI / 180.0f;
 
+proc iVec2*(x, y: int32): IVec2 =
+  result.raw = [x, y]
+proc x*(v: IVec2): int32 =
+  result = v.raw[0]  
+proc y*(v: IVec2): int32 =
+  result = v.raw[1]  
+
 proc vec2*(x, y: float32): Vec2 =
   result.raw = [x, y]
 proc x*(v: Vec2): float32 =
@@ -146,6 +156,9 @@ proc `+`*(a, b: Vec3): Vec3 =
   glmc_vec3_add(addr(a.raw[0]), addr(b.raw[0]), addr(result.raw[0]))
 proc `+=`*(lhs: var Vec3; rhs: Vec3) =
   lhs = lhs + rhs
+proc glmc_vec3_div(a, b, dest: ptr float32) {.importc: "glmc_vec3_div", cdecl.}
+proc `/`*(a, b: Vec3): Vec3 =
+  glmc_vec3_div(addr(a.raw[0]), addr(b.raw[0]), addr(result.raw[0]))
 proc glmc_vec3_sub(a, b, dest: ptr float32) {.importc: "glmc_vec3_sub", cdecl.}  
 proc `-`*(a, b: Vec3): Vec3 =
   glmc_vec3_sub(addr(a.raw[0]), addr(b.raw[0]), addr(result.raw[0]))

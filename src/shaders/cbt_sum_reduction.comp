@@ -1,0 +1,28 @@
+#version 450
+
+#include "cbt.glsl"
+
+#   define CBT_LOCAL_SIZE_X 256
+
+layout (binding = 0, std140) uniform params {
+    int u_PassID;
+};
+
+layout (local_size_x = CBT_LOCAL_SIZE_X,
+        local_size_y = 1,
+        local_size_z = 1) in;
+
+void main(void)
+{
+    const int cbtID = 0;
+    uint cnt = (1u << u_PassID);
+    uint threadID = gl_GlobalInvocationID.x;
+
+    if (threadID < cnt) {
+        uint nodeID = threadID + cnt;
+        uint x0 = cbt_HeapRead(cbtID, cbt_CreateNode(nodeID << 1u     , u_PassID + 1));
+        uint x1 = cbt_HeapRead(cbtID, cbt_CreateNode(nodeID << 1u | 1u, u_PassID + 1));
+
+        cbt_HeapWrite(cbtID, cbt_CreateNode(nodeID, u_PassID), x0 + x1);
+    }
+}

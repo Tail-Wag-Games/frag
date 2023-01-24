@@ -1,15 +1,14 @@
-import sokol/app as sapp, sokol/gfx as sgfx,
-       api, terrain
+import std/deques,
+       sokol/app as sapp, sokol/gfx as sgfx,
+       api, logging, noise, pool, terrain, tnt
 
 type
-  VertexPool = object
-    vBuff: sgfx.Buffer
-    iBuff: sgfx.Buffer
-    indBuff: sgfx.Buffer
+  TerrainState = object
+    splitShader: sgfx.Shader
 
-
-
-var pluginApi {.fragState.}: ptr PluginApi
+var
+  n {.fragState.}: NoiseState
+  pluginApi {.fragState.}: ptr PluginApi
 
 proc init() =
   discard

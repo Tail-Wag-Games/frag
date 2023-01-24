@@ -21,6 +21,18 @@ proc copyStr*[N: static int](dst: var array[N, char]; src: cstring): ptr char {.
 
   result = addr dst[num]
 
+proc copyStr*(dst: var cstring; src: openArray[char]): ptr char {.discardable.} =
+  let
+    len = src.len()
+    max = len(dst) - 1
+    num = if len < max: len else: max
+  
+  if num > 0:
+    copyMem(addr dst[0], addr src[0], num)
+  dst[num] = '\0'
+
+  result = addr dst[num]
+
 proc copyStr*[N](dst: var array[N, char]; src: string): ptr char {.discardable.} =
   dst.copyStr(addr src[0])
 
@@ -97,7 +109,7 @@ proc `+`*[T; S: SomeInteger](p: ptr T, offset: S): ptr T =
     doAssert p2[0].i == 500
     doAssert p2[-1].f == 4.5
   ##
-  return cast[ptr T](cast[ByteAddress](p) +% (int(offset) * sizeof(T)))
+  return cast[ptr T](cast[uint](p) + uint(int(offset) * sizeof(T)))
   #                                      `+%` treats x and y inputs as unsigned
   # and adds them: https://nim-lang.github.io/Nim/system.html#%2B%25%2Cint%2Cint
 
@@ -120,7 +132,7 @@ proc `+`*[S: SomeInteger](p: pointer, offset: S): pointer =
     doAssert cast[ptr MyObject](p2)[0].i == 500-
     doAssert cast[ptr MyObject](p2)[-1].f == 4.5
   ##
-  return cast[pointer](cast[ByteAddress](p) +% int(offset))
+  return cast[pointer](cast[uint](p) + uint(offset))
 
 proc `-`*[T; S: SomeInteger](p: ptr T, offset: S): ptr T =
   ## Decrements pointer `p` by `offset` that jumps memory in increments of
@@ -141,7 +153,7 @@ proc `-`*[T; S: SomeInteger](p: ptr T, offset: S): ptr T =
     doAssert p1[-1].b == true
     doAssert p1[1].f == 6.7
   ##
-  return cast[ptr T](cast[ByteAddress](p) -% (int(offset) * sizeof(T)))
+  return cast[ptr T](cast[uint](p) - uint(int(offset) * sizeof(T)))
 
 proc `-`*[T](p1: ptr T, p2: ptr T): uint =
   return (cast[uint](p1) - (cast[uint](p2)))
@@ -165,7 +177,7 @@ proc `-`*[S: SomeInteger](p: pointer, offset: S): pointer =
     doAssert cast[ptr MyObject](p1)[-1].b == true
     doAssert cast[ptr MyObject](p1)[1].f == 6.7
   ##
-  return cast[pointer](cast[ByteAddress](p) -% int(offset))
+  return cast[pointer](cast[uint](p) - uint(offset))
 
 proc `+=`*[T; S: SomeInteger](p: var ptr T, offset: S) =
   ## Increments pointer `p` *in place* by `offset` that jumps memory

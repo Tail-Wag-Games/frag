@@ -68,7 +68,7 @@ proc createBin(itemSize, capacity: int): ptr SpscBin =
 
     for i in 0 ..< capacity:
       result.ptrs[capacity - i - 1] =
-        cast[ptr SpscNode](result.buff + (sizeof(SpscNode) * itemSize) * i)
+        cast[ptr SpscNode](result.buff + (sizeof(SpscNode) + itemSize) * i)
 
 proc create*(itemSize, capacity: int): ptr SpscQueue =
   assert itemSize > 0

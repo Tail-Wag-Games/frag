@@ -10,7 +10,7 @@ type
   Pool* = object
     itemSize: int
     capacity: int
-    pages* {.align: 16.}: ptr Page
+    pages*: ptr Page
 
 proc poolPageCreate(pool: ptr Pool): ptr Page =
   let

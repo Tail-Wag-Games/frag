@@ -2,6 +2,8 @@ import std/atomics,
        config, primer
 
 type
+  Whence* = distinct int32
+
   MemBlock* = object
     data*: pointer
     size*: int64
@@ -10,9 +12,14 @@ type
     refCount*: Atomic[int]
 
   MemReader* = object
-    data: ptr UncheckedArray[uint8]
-    pos: int64
-    top: int64
+    data*: ptr UncheckedArray[uint8]
+    pos*: int64
+    top*: int64
+
+const
+  wBegin* = Whence(0)
+  wCurrent* = Whence(1)
+  wEnd* = Whence(2)
 
 template truncateData() =
   assert(false, "truncated data")
@@ -83,6 +90,19 @@ proc readMem*(reader: ptr MemReader; data: pointer; size: int64): int64 =
     truncateData()
   copyMem(data, addr(reader.data[reader.pos]), result)
   reader.pos += result
+
+proc seekr*(reader: ptr MemReader; offset: int64; w: Whence): int64 =
+  case w:
+  of wBegin:
+    reader.pos = clamp(offset, 0'i64, reader.top)
+  of wCurrent:
+    reader.pos = clamp(reader.pos + offset, 0'i64, reader.top)
+  of wEnd:
+    reader.pos = clamp((reader.top - offset), 0'i64, reader.top)
+  else:
+    discard
+
+  result = reader.pos
 
 proc initMemReader*(reader: ptr MemReader; data: pointer; size: int64) =
   assert(data != nil)

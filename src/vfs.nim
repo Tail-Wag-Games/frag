@@ -68,7 +68,7 @@ proc resolvePath(path: cstring; flags: VfsFlag): string =
       result = normalizePath(sPath, DirSep)
       assert(fileExists(result))
 
-proc read(path: cstring; flags: VfsFlag): ptr MemBlock =
+proc read(path: cstring; flags: VfsFlag): ptr MemBlock {.cdecl.} =
   let resolvedPath = resolvePath(path, flags)
   result = if not bool(flags and vfsfTextFile): loadBinaryFile(resolvedPath)
                                           else: loadTextFile(resolvedPath)
@@ -106,7 +106,6 @@ proc worker(userData: pointer) {.thread.} =
         else:
           res.code = rcReadFailed
         discard produceAndGrow(ctx.responseQueue, addr(res))
-        break
       of acWrite:
         res.callback.writeFn = req.callback.writeFn
         let written = write(req.path, req.writeMem, req.flags)
@@ -118,7 +117,6 @@ proc worker(userData: pointer) {.thread.} =
         else:
           res.code = rcWriteFailed
         discard produceAndGrow(ctx.responseQueue, addr(res))
-        break
       else:
         discard
   
@@ -201,5 +199,6 @@ proc shutdown*() =
 
 vfsApi = VfsApi(
   mount: mount,
+  read: read,
   readAsync: readAsync
 )
