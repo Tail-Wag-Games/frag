@@ -1,5 +1,11 @@
 #version 450
 
+layout(std430, binding = 1) readonly buffer cbt_Buffer {
+    uint heap[];
+} u_CbtBuffers[1];
+
+layout (binding = 0) uniform sampler2D u_DmapSampler;
+
 #include "frustum_culling.glsl"
 #include "cbt_readonly.glsl"
 #include "leb.glsl"

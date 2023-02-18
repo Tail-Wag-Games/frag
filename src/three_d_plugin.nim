@@ -32,7 +32,7 @@ proc gridXYPlane(spacing, spacingBold: float32; vp: ptr Mat4;
 
       adjustedSpacing = ceil(max(spacing, 0.0001'f32))
 
-    var bb: AABB
+    var bb: AABBf
 
     let nearPlaneNorm = normalize(frustum[0].xyz, frustum[1].xyz, frustum[2].xyz)
 

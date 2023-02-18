@@ -1,0 +1,49 @@
+#version 450
+
+#define dispatchIndirect( \
+	  _buffer             \
+	, _offset             \
+	, _numX               \
+	, _numY               \
+	, _numZ               \
+	)                     \
+	_buffer[8] = _numX; \
+    _buffer[9] = _numY; \
+    _buffer[10] = _numZ; \
+    _buffer[11] = 0
+
+#define drawIndexedIndirect( \
+	  _buffer                \
+	, _offset                \
+	, _numIndices            \
+	, _numInstances          \
+	, _startIndex            \
+	, _startVertex           \
+	, _startInstance         \
+	)                        \
+    _buffer[0] = _numIndices; \
+    _buffer[1] = _numInstances; \
+    _buffer[2] = _startIndex; \
+    _buffer[3] = _startVertex; \
+    _buffer[4] = _startInstance; \
+    _buffer[5] = 0; \
+    _buffer[6] = 0; \
+    _buffer[7] = 0
+
+layout(std430, binding = 0) readonly buffer cbt_Buffer {
+    uint heap[];
+} u_CbtBuffers[1];
+
+layout(std430, binding = 0) writeonly buffer indirect {
+    uint indirectBuffer[];
+};
+
+#include "cbt_readonly.glsl"
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+void main()
+{
+    const int cbtID = 0;
+    uint nodeCount = cbt_NodeCount(cbtID);
+	dispatchIndirect(indirectBuffer, 1u, nodeCount / 256u + 1u, 1u, 1u);
+}

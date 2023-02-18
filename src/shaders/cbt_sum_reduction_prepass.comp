@@ -1,5 +1,9 @@
 #version 450
 
+layout(std430, binding = 0) buffer cbt_Buffer {
+    uint heap[];
+} u_CbtBuffers[1];
+
 #include "cbt.glsl"
 
 #   define CBT_LOCAL_SIZE_X 256
@@ -8,10 +12,7 @@ layout (binding = 0, std140) uniform params {
         int u_PassID;
 };
 
-layout (local_size_x = CBT_LOCAL_SIZE_X,
-        local_size_y = 1,
-        local_size_z = 1) in;
-
+layout (local_size_x = CBT_LOCAL_SIZE_X, local_size_y = 1, local_size_z = 1) in;
 void main(void)
 {
     const int cbtID = 0;

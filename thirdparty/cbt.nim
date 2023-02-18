@@ -15,3 +15,4 @@ proc node*(id, depth: uint64): Node =
 proc createAtDepth*(maxDepth, depth: int64): ptr Tree {.importc: "cbt_CreateAtDepth".}
 proc heapByteSize*(tree: ptr Tree): int64 {.importc: "cbt_HeapByteSize".}
 proc getHeap*(tree: ptr Tree): ptr UncheckedArray[char] {.importc: "cbt_GetHeap".}
+proc release*(tree: ptr Tree) {.importc: "cbt_Release".}

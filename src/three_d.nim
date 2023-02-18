@@ -2,9 +2,9 @@ import api, tnt
 
 type
   DebugVertex* = object
-    pos*: Vec3
-    normal*: Vec3
-    uv*: Vec2
+    pos*: Vec3f
+    normal*: Vec3f
+    uv*: Vec2f
     color*: array[4, uint8]
 
   Debug* = object

@@ -1,13 +1,13 @@
-import std / [dynlib, os, parseopt, strformat],
-       cglm, sokol/app as sapp, sokol/time as stime,
-       api, fuse, linchpin, plugin
+import std / [dynlib, os, parseopt, random, strformat],
+       sokol/app as sapp, sokol/time as stime,
+       api, fuse, linchpin, plugin, tnt
 
 type
   AppState = object
     cfg: Config
 
     appFilepath: string
-    windowSize: Vec2
+    windowSize: Vec2f
     keysPressed: array[MaxKeycodes, bool]
 
 var
@@ -49,7 +49,7 @@ proc releaseMouse() {.cdecl.} =
   when defined(Windows):
     ReleaseCapture()
 
-proc windowSize(size: ptr Vec2) {.cdecl.} =
+proc windowSize(size: ptr Vec2f) {.cdecl.} =
   assert size != nil
   size[] = ctx.windowSize
 
@@ -107,6 +107,8 @@ proc event(e: ptr sapp.Event) {.cdecl.} =
 
 proc run*() =
   block:
+    randomize()
+
     stime.setup()
 
     var appFilepath: string

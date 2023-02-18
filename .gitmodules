@@ -22,6 +22,4 @@
 [submodule "thirdparty/stb"]
 	path = thirdparty/stb
 	url = git@github.com:Tail-Wag-Games/stb.git
-[submodule "thirdparty/c89atomic"]
-	path = thirdparty/c89atomic
-	url = git@github.com:Tail-Wag-Games/c89atomic.git
+	

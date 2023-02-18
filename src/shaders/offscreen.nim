@@ -3,7 +3,7 @@
 # 
 
 const offscreen_vs_size*: uint32 = 903
-let offscreen_vs_data*: array[226, uint32] = [
+var offscreen_vs_data*: array[int(904/4), uint32] = [
   0x66756263, 0x20726566, 0x61726170, 0x3a20736d, 0x67657220, 0x65747369, 0x30622872, 0x0a7b0a29, 
   0x20202020, 0x616f6c66, 0x345f2074, 0x5f755f34, 0x6d6d6147, 0x203a2061, 0x6b636170, 0x7366666f, 
   0x63287465, 0x0a3b2930, 0x0a0a3b7d, 0x74786554, 0x32657275, 0x6c663c44, 0x3474616f, 0x5f75203e, 
@@ -35,7 +35,7 @@ let offscreen_vs_data*: array[226, uint32] = [
   0x0a3b7475, 0x00000a7d ]
 
 const offscreen_vs_refl_size*: uint32 = 423
-let offscreen_vs_refl_data*: array[106, uint32] = [
+var offscreen_vs_refl_data*: array[int(424/4), uint32] = [
   0x616c227b, 0x6175676e, 0x3a226567, 0x736c6822, 0x222c226c, 0x666f7270, 0x5f656c69, 0x73726576, 
   0x226e6f69, 0x2c30353a, 0x22737622, 0x66227b3a, 0x22656c69, 0x3a43223a, 0x73555c5c, 0x5c737265, 
   0x63615a5c, 0x645c5c68, 0x5c5c7665, 0x67617266, 0x72735c5c, 0x735c5c63, 0x65646168, 0x5c5c7372, 
@@ -52,7 +52,7 @@ let offscreen_vs_refl_data*: array[106, uint32] = [
   0x5d7d5d7d, 0x00007d7d ]
 
 const offscreen_fs_size*: uint32 = 1517
-let offscreen_fs_data*: array[380, uint32] = [
+var offscreen_fs_data*: array[int(1520/4), uint32] = [
   0x66756263, 0x20726566, 0x61726170, 0x3a20736d, 0x67657220, 0x65747369, 0x30622872, 0x0a7b0a29, 
   0x20202020, 0x616f6c66, 0x395f2074, 0x5f755f30, 0x6d6d6147, 0x203a2061, 0x6b636170, 0x7366666f, 
   0x63287465, 0x0a3b2930, 0x0a0a3b7d, 0x74786554, 0x32657275, 0x6c663c44, 0x3474616f, 0x5f75203e, 
@@ -103,7 +103,7 @@ let offscreen_fs_data*: array[380, uint32] = [
   0x756f5f65, 0x74757074, 0x0a7d0a3b, 0x00000000 ]
 
 const offscreen_fs_refl_size*: uint32 = 479
-let offscreen_fs_refl_data*: array[120, uint32] = [
+var offscreen_fs_refl_data*: array[int(480/4), uint32] = [
   0x616c227b, 0x6175676e, 0x3a226567, 0x736c6822, 0x222c226c, 0x666f7270, 0x5f656c69, 0x73726576, 
   0x226e6f69, 0x2c30353a, 0x22736622, 0x66227b3a, 0x22656c69, 0x3a43223a, 0x73555c5c, 0x5c737265, 
   0x63615a5c, 0x645c5c68, 0x5c5c7665, 0x67617266, 0x72735c5c, 0x735c5c63, 0x65646168, 0x5c5c7372, 

@@ -30,23 +30,17 @@ cbuffer params : register(b1)
 
 cbuffer PerFrameVariables : register(b0)
 {
-    row_major float4x4 _596_u_ModelMatrix : packoffset(c0);
-    row_major float4x4 _596_u_ModelViewMatrix : packoffset(c4);
-    row_major float4x4 _596_u_ViewMatrix : packoffset(c8);
-    row_major float4x4 _596_u_CameraMatrix : packoffset(c12);
-    row_major float4x4 _596_u_ViewProjectionMatrix : packoffset(c16);
-    row_major float4x4 _596_u_ModelViewProjectionMatrix : packoffset(c20);
-    float4 _596_u_FrustumPlanes[6] : packoffset(c24);
+    row_major float4x4 _598_u_ModelMatrix : packoffset(c0);
+    row_major float4x4 _598_u_ModelViewMatrix : packoffset(c4);
+    row_major float4x4 _598_u_ViewMatrix : packoffset(c8);
+    row_major float4x4 _598_u_CameraMatrix : packoffset(c12);
+    row_major float4x4 _598_u_ViewProjectionMatrix : packoffset(c16);
+    row_major float4x4 _598_u_ModelViewProjectionMatrix : packoffset(c20);
+    float4 _598_u_FrustumPlanes[6] : packoffset(c24);
 };
 
 Texture2D<float4> u_DmapSampler : register(t0);
 SamplerState _u_DmapSampler_sampler : register(s0);
-Texture2D<float4> u_SmapSampler : register(t1);
-SamplerState _u_SmapSampler_sampler : register(s1);
-Texture2D<float4> u_DmapRockSampler : register(t2);
-SamplerState _u_DmapRockSampler_sampler : register(s2);
-Texture2D<float4> u_SmapRockSampler : register(t3);
-SamplerState _u_SmapRockSampler_sampler : register(s3);
 
 static float4 gl_Position;
 static int gl_InstanceIndex;
@@ -243,27 +237,27 @@ VertexAttribute TessellateTriangle(float2 texCoords[3], float2 tessCoord)
     float2 param_1 = tessCoord;
     float2 texCoord = BarycentricInterpolation(param, param_1);
     float4 position = float4(texCoord, 0.0f, 1.0f);
-    position.z = _471_u_DmapFactor * u_DmapSampler.SampleLevel(_u_DmapSampler_sampler, texCoord, 0.0f).x;
-    VertexAttribute _552 = { position, texCoord };
-    return _552;
+    position.z = ((-1.0f) * _471_u_DmapFactor) * u_DmapSampler.SampleLevel(_u_DmapSampler_sampler, texCoord, 0.0f).x;
+    VertexAttribute _554 = { position, texCoord };
+    return _554;
 }
 
 void vert_main()
 {
     uint nodeID = uint(gl_InstanceIndex);
     uint param = nodeID;
-    cbt_Node _563 = cbt_DecodeNode(0, param);
-    cbt_Node node = _563;
-    float4 _567[3];
-    DecodeTriangleVertices(_567, node);
-    float4 triangleVertices[3] = _567;
-    float2 _578[3] = { triangleVertices[0].xy, triangleVertices[1].xy, triangleVertices[2].xy };
-    float2 triangleTexCoords[3] = _578;
+    cbt_Node _565 = cbt_DecodeNode(0, param);
+    cbt_Node node = _565;
+    float4 _569[3];
+    DecodeTriangleVertices(_569, node);
+    float4 triangleVertices[3] = _569;
+    float2 _580[3] = { triangleVertices[0].xy, triangleVertices[1].xy, triangleVertices[2].xy };
+    float2 triangleTexCoords[3] = _580;
     float2 param_1 = i_VertexPos;
     VertexAttribute attrib = TessellateTriangle(triangleTexCoords, param_1);
-    gl_Position = mul(attrib.position, _596_u_ModelViewProjectionMatrix);
+    gl_Position = mul(attrib.position, _598_u_ModelViewProjectionMatrix);
     o_TexCoord = attrib.texCoord;
-    o_WorldPos = mul(attrib.position, _596_u_ModelMatrix).xyz;
+    o_WorldPos = mul(attrib.position, _598_u_ModelMatrix).xyz;
 }
 
 SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)

@@ -648,26 +648,98 @@ proc onReleaseShader(asset: Asset) {.cdecl.} =
 
 proc onPrepareTexture(params: ptr AssetLoadParams;
         mem: ptr MemBlock): AssetLoadData {.cdecl.} =
-  # block outer:
-  #   let
-  #     tex = cast[ptr Texture](alloc0(sizeof(Texture)))
-  #     info = addr(tex.info)
-  #     (dir, name, ext) = splitFile($params.path)
+  block outer:
+    let
+      tex = cast[ptr Texture](allocShared0(sizeof(Texture)))
+      info = addr(tex.info)
+      # (dir, name, ext) = splitFile($params.path)
 
-  #   var numComponents: int32
-  #   if bool(infoFromMemory(cast[ptr char](mem.data), int32(mem.size), addr(info.width), addr(info.height), addr(numComponents))):
-  #     if bool(is_16_bit_from_memory(mem.data, int32(mem.size))):
-  discard
+    var numComponents: int32
+    if bool(infoFromMemory(cast[ptr char](mem.data), int32(mem.size), addr(info.width), addr(info.height), addr(numComponents))):
+      # if bool(is_16_bit_from_memory(mem.data, int32(mem.size))):
+      info.imageType = imageType2d
+      info.format = pixelFormatRgba8
+      info.memSizeBytes = 4 * info.width * info.height
+      info.dl.layers = 1
+      info.mips = 1
+      info.bpp = 32
 
+    tex.img = gfxApi.allocImage()
+    assert(bool(tex.img.id))
 
+    let userData = allocShared0(sizeof(ImageDesc))
+    
+    result.asset.p = tex
+    result.userData1 = userData
 
 proc onLoadTexture(data: ptr AssetLoadData; params: ptr AssetLoadParams;
         mem: ptr MemBlock): bool {.cdecl.} =
-  result = true
+  block outer:
+    let
+      tParams = cast[ptr TextureLoadParams](params.params)
+      tex = cast[ptr Texture](data.asset.p)
+      desc = cast[ptr ImageDesc](data.userData1)
+    
+    # var firstMip = if bool(tParams.firstMip): tParams.firstMip else: ctx.textureManager.defaultFirstMip
+    # if firstMip >= tex.info.mips:
+    #   firstMip = tex.info.mips - 1
+    let firstMip = 0'i32
+    
+    let numMips = tex.info.mips - firstMip
+
+    echo numMips, " ", tex.info.mips, " ", firstMip
+
+    var
+      w = tex.info.width
+      h = tex.info.height
+    for i in 0 ..< firstMip:
+      w = w shr 1
+      h = h shr 1
+    tex.info.mips = numMips
+    tex.info.width = w
+    tex.info.height = h
+
+    assert(desc != nil)
+    desc[] = ImageDesc(
+      `type`: tex.info.imageType,
+      width: tex.info.width,
+      height: tex.info.height,
+      numSlices: tex.info.dl.layers,
+      numMipmaps: numMips,
+      pixelFormat: tex.info.format,
+      minFilter: filterLinear,
+      magFilter: filterNearest,
+      wrapU: wrapRepeat,
+      wrapV: wrapRepeat,
+      wrapW: wrapRepeat,
+      maxAnisotropy: if bool(tParams.aniso): uint32(tParams.aniso) else: uint32(ctx.textureManager.defaultAniso)
+    )
+
+    var comp: int32
+    let pixels = loadFromMemory(cast[ptr char](mem.data), int32(mem.size), addr(w), addr(h), addr(comp), 4)
+    if pixels != nil:
+      echo w, h, comp
+      assert(tex.info.width == w and tex.info.height == h)
+      desc.data.subimage[0][0].`addr` = pixels
+      desc.data.subimage[0][0].size = w * h * 4
+
+    result = true
 
 proc onFinalizeTexture(data: ptr AssetLoadData; params: ptr AssetLoadParams;
         mem: ptr MemBlock) {.cdecl.} =
-  discard
+  let
+    tex = cast[ptr Texture](data.asset.p)
+    desc = cast[ptr ImageDesc](data.userData1)
+  
+  assert(desc != nil)
+  desc.label = params.path
+
+  gfxApi.initImage(tex.img, desc)
+
+  assert(desc.data.subimage[0][0].`addr` != nil)
+  imageFree(desc.data.subimage[0][0].`addr`)
+
+  deallocShared(data.userData1)
 
 proc onReloadTexture(handle: AssetHandle; prevAsset: Asset) {.cdecl.} =
   discard
@@ -774,7 +846,7 @@ proc runDispatchIndirectCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
   dispatchIndirect(buf, bufferOffset)
   result = (buff: buff, offset: curOffset)
 
-proc runDrawIndexedInstancedIndirect(buff: ptr UncheckedArray[uint8],
+proc runDrawIndexedInstancedIndirectCb(buff: ptr UncheckedArray[uint8],
     offset: int): tuple[buff: ptr UncheckedArray[uint8], offset: int] =
   var curOffset = offset
   let buf = cast[ptr sgfx.Buffer](addr(buff[curOffset]))[]
@@ -795,7 +867,21 @@ proc runUpdateBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
 
 proc runUpdateImageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
-  discard
+  var curOffset = offset
+  let imgId = cast[ptr Image](addr(buff[curOffset]))[]
+  curOffset += sizeof(Image)
+  var data = cast[ptr ImageData](addr(buff[curOffset]))[]
+  curOffset += sizeof(ImageData)
+  let startOffset = curOffset
+
+  for face in 0 ..< ord(cubefaceNum):
+    for mip in 0 ..< maxMipmaps:
+      if bool(data.subimage[face][mip].size):
+        data.subimage[face][mip].`addr` = addr(buff[startOffset]) + cast[int](data.subimage[face][mip].`addr`)
+        curOffset += data.subimage[face][mip].size
+  
+  sgfx.c_updateImage(imgId, addr(data))
+  result = (buff: buff, offset: curOffset)
 
 proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
@@ -855,6 +941,7 @@ const runCommandCallbacks = [
     runDrawCb,
     runDispatchCb,
     runDispatchIndirectCb,
+    runDrawIndexedInstancedIndirectCb,
     runFinishPassCb,
     runUpdateBufferCb,
     runUpdateImageCb,
@@ -1310,6 +1397,50 @@ proc appendBuffer(buf: Buffer; data: pointer;
 
   result = int32(streamOffset)
 
+proc updateImage(img: Image; data: ptr ImageData) {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var imageSize = 0
+  for face in 0 ..< ord(cubeFaceNum):
+    for mip in 0 ..< maxMipmaps:
+      imageSize += data.subimage[face][mip].size
+  
+  var
+    offset = 0
+    buff = initParamsBuff(cb, sizeof(sgfx.Image) + sizeof(ImageData), offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdUpdateImage,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  cast[ptr sgfx.Image](buff)[] = img
+  buff += sizeof(sgfx.Image)
+  let dataCopy = cast[ptr ImageData](buff)
+  buff += sizeof(sgfx.ImageData)
+  zeroMem(dataCopy, sizeof(ImageData))
+  let startBuff = buff
+  
+  for face in 0 ..< ord(cubeFaceNum):
+    for mip in 0 ..< maxMipmaps:
+      if data.subimage[face][mip].`addr` != nil:
+        copyMem(buff, data.subimage[face][mip].`addr`, data.subimage[face][mip].size)
+        dataCopy.subimage[face][mip].`addr` =
+          cast[pointer](buff - startBuff)
+        dataCopy.subimage[face][mip].size = data.subimage[face][mip].size
+
+        buff += data.subimage[face][mip].size
+  
+  setImageUsedFrame(img.id, coreApi.frameIndex())
+
 proc validateStageDependencies() =
   acquire(ctx.stageLock)
   for i in 0 ..< len(ctx.stages):
@@ -1590,6 +1721,10 @@ proc getShader(shaderAssetHandle: AssetHandle): ptr api.Shader {.cdecl.} =
   result = cast[ptr api.Shader](assetApi.asset(shaderAssetHandle).p)
   assert(not isNil(result), "shader is not loaded or missing")
 
+proc getTexture(textureAssetHandle: AssetHandle): ptr api.Texture {.cdecl.} =
+  result = cast[ptr api.Texture](assetApi.asset(textureAssetHandle).p)
+  assert(not isNil(result), "texture is not loaded or missing")
+
 proc makePipeline(desc: ptr PipelineDesc): sgfx.Pipeline {.cdecl.} =
   ctx.lastShaderError = false
 
@@ -1612,21 +1747,21 @@ proc glFamily*(): bool {.cdecl.} =
   result = backend == backendGlcore33 or backend == backendGles2 or backend == backendGles3
 
 proc initShaders() =
-  assetApi.registerAssetType(
+   assetApi.registerAssetType(
     "shader",
-    AssetCallbacks(
-      onPrepare: onPrepareShader,
-      onLoad: onLoadShader,
-      onFinalize: onFinalizeShader,
-      onReload: onReloadShader,
-      onRelease: onReleaseShader
-    ),
-    nil,
-    0,
-    Asset(p: nil),
-    Asset(p: nil),
-    alfWaitOnLoad
-  )
+      AssetCallbacks(
+        onPrepare: onPrepareShader,
+        onLoad: onLoadShader,
+        onFinalize: onFinalizeShader,
+        onReload: onReloadShader,
+        onRelease: onReleaseShader
+      ),
+      nil,
+      0,
+      Asset(p: nil),
+      Asset(p: nil),
+      alfWaitOnLoad
+    )
 
 proc initTextures() =
   var
@@ -1717,7 +1852,8 @@ gfxApi = GfxApi(
     dispatchIndirect: dispatchIndirect,
     drawIndexedInstancedIndirect: drawIndexedInstancedIndirect,
     finishPass: finishPass,
-    appendBuffer: appendBuffer
+    appendBuffer: appendBuffer,
+    updateImage: updateImage
   ),
   glFamily: glFamily,
   makeBuffer: makeBuffer,
@@ -1725,10 +1861,13 @@ gfxApi = GfxApi(
   makeShader: cMakeShader,
   makePipeline: makePipeline,
   makePass: cMakePass,
+  allocImage: callocImage,
   allocShader: cAllocShader,
+  initImage: cInitImage,
   initShader: cInitShader,
   registerStage: registerStage,
   makeShaderWithData: makeShaderWithData,
   bindShaderToPipeline: bindShaderToPipeline,
   getShader: getShader,
+  getTexture: getTexture
 )

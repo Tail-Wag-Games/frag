@@ -6,9 +6,9 @@ by Jonathan Dupuy
 #   define CBT_HEAP_BUFFER_BINDING 1
 #   define CBT_HEAP_BUFFER_COUNT 1
 
-layout(std430, binding = CBT_HEAP_BUFFER_BINDING) readonly buffer cbt_Buffer {
-    uint heap[];
-} u_CbtBuffers[CBT_HEAP_BUFFER_COUNT];
+// layout(std430, binding = CBT_HEAP_BUFFER_BINDING) readonly buffer cbt_Buffer {
+//     uint heap[];
+// } u_CbtBuffers[CBT_HEAP_BUFFER_COUNT];
 
 // data structures
 struct cbt_Node {

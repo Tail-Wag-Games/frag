@@ -21,10 +21,10 @@ layout (std140, binding = 1) uniform params {
     uniform float u_MinLodVariance;
 };
 
-layout (binding = 0) uniform sampler2D u_DmapSampler;
-layout (binding = 1) uniform sampler2D u_SmapSampler;
-layout (binding = 2) uniform sampler2D u_DmapRockSampler;
-layout (binding = 3) uniform sampler2D u_SmapRockSampler;
+// layout (binding = 0) uniform sampler2D u_DmapSampler;
+// layout (binding = 1) uniform sampler2D u_SmapSampler;
+// layout (binding = 2) uniform sampler2D u_DmapRockSampler;
+// layout (binding = 3) uniform sampler2D u_SmapRockSampler;
 
 
 /*******************************************************************************
@@ -203,16 +203,16 @@ bool FrustumCullingTest(in const vec4[3] patchVertices)
 vec2 LevelOfDetail(in const vec4[3] patchVertices)
 {
     // culling test
-    if (!FrustumCullingTest(patchVertices))
-#if FLAG_CULL
-        return vec2(0.0f, 0.0f);
-#else
-        return vec2(0.0f, 1.0f);
-#endif
+//     if (!FrustumCullingTest(patchVertices))
+// #if FLAG_CULL
+//         return vec2(0.0f, 0.0f);
+// #else
+//         return vec2(0.0f, 1.0f);
+// #endif
 
     // variance test
-    if (!DisplacementVarianceTest(patchVertices))
-        return vec2(0.0f, 1.0f);
+    // if (!DisplacementVarianceTest(patchVertices))
+    //     return vec2(0.0f, 1.0f);
 
     // compute triangle LOD
     return vec2(TriangleLevelOfDetail(patchVertices), 1.0f);
@@ -250,7 +250,8 @@ VertexAttribute TessellateTriangle(
     vec2 texCoord = BarycentricInterpolation(texCoords, tessCoord);
     vec4 position = vec4(texCoord, 0, 1);
 
-    position.z = u_DmapFactor * textureLod(u_DmapSampler, texCoord, 0.0).r;
+    // position.z = u_DmapFactor * textureLod(u_DmapSampler, texCoord, 0.0).r;
+    position.z = -1.0 * u_DmapFactor * textureLod(u_DmapSampler, texCoord, 0.0).r;
 
     return VertexAttribute(position, texCoord);
 }
@@ -275,7 +276,7 @@ vec4 ShadeFragment(vec2 texCoord, vec3 worldPos)
     float blendFactor = exp2(-nearestDistance / wireScale);
 #endif
 
-#if FLAG_DISPLACE
+// #if FLAG_DISPLACE
 #if 1
     // slope
     vec2 smap = texture(u_SmapSampler, texCoord).rg * u_DmapFactor * 0.03;
@@ -291,9 +292,9 @@ vec4 ShadeFragment(vec2 texCoord, vec3 worldPos)
 
     vec3 n = normalize(vec3(u_DmapFactor * 0.03 / filterSize * 0.5f * vec2(-sx, -sy), 1));
 #endif
-#else
-    vec3 n = vec3(0, 0, 1);
-#endif
+// #else
+//     vec3 n = vec3(0, 0, 1);
+// #endif
 
 #if SHADING_SNOWY
     float d = clamp(n.z, 0.0, 1.0);

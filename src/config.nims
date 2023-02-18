@@ -1,6 +1,6 @@
 import std / [os, strutils]
 
-switch("gc", "arc")
+switch("gc", "orc")
 switch("tlsEmulation", "off")
 switch("define", "useMalloc")
 switch("define", "host")

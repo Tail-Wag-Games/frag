@@ -5,19 +5,19 @@
     "file": "C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render_fs.hlsl",
     "inputs": [
       {
-        "id": 16,
+        "id": 29,
         "name": "i_TexCoord",
         "location": 2
       },
       {
-        "id": 85,
+        "id": 138,
         "name": "i_WorldPos",
         "location": 3
       }
     ],
     "outputs": [
       {
-        "id": 72,
+        "id": 117,
         "name": "o_FragColor",
         "location": 0
       }
@@ -25,14 +25,6 @@
     "textures": [
       {
         "id": 13,
-        "name": "u_SmapSampler",
-        "set": 0,
-        "binding": 1,
-        "dimension": "2d",
-        "format": "unknown"
-      },
-      {
-        "id": 81,
         "name": "u_DmapSampler",
         "set": 0,
         "binding": 0,
@@ -40,25 +32,17 @@
         "format": "unknown"
       },
       {
-        "id": 82,
-        "name": "u_DmapRockSampler",
+        "id": 130,
+        "name": "u_SmapSampler",
         "set": 0,
-        "binding": 2,
-        "dimension": "2d",
-        "format": "unknown"
-      },
-      {
-        "id": 83,
-        "name": "u_SmapRockSampler",
-        "set": 0,
-        "binding": 3,
+        "binding": 1,
         "dimension": "2d",
         "format": "unknown"
       }
     ],
     "storage_buffers": [
       {
-        "id": 80,
+        "id": 129,
         "name": "cbt_Buffer",
         "array": 1,
         "set": 0,
@@ -70,7 +54,7 @@
     ],
     "uniform_buffers": [
       {
-        "id": 23,
+        "id": 75,
         "name": "params",
         "set": 0,
         "binding": 1,
@@ -103,7 +87,7 @@
         ]
       },
       {
-        "id": 65,
+        "id": 136,
         "name": "PerFrameVariables",
         "set": 0,
         "binding": 0,

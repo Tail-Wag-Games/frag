@@ -75,7 +75,7 @@ type
     height*: proc(): int32 {.cdecl.}
     keyPressed*: proc(key: Keycode): bool {.cdecl.}
     name*: proc(): cstring {.cdecl.}
-    windowSize*: proc(sizie: ptr Vec2) {.cdecl.}
+    windowSize*: proc(size: ptr Vec2f) {.cdecl.}
     captureMouse*: proc() {.cdecl.}
     releaseMouse*: proc() {.cdecl.}
 
@@ -187,6 +187,7 @@ type
     finishPass*: proc() {.cdecl.}
     appendBuffer*: proc(buf: Buffer; data: pointer;
         dataSize: int32): int32 {.cdecl.}
+    updateImage*: proc(img: sgfx.Image; data: ptr ImageData) {.cdecl.}
 
   GfxApi* = object
     staged*: GfxDrawApi
@@ -196,7 +197,9 @@ type
     makeShader*: proc(desc: ptr ShaderDesc): sgfx.Shader {.cdecl.}
     makePipeline*: proc(desc: ptr PipelineDesc): sgfx.Pipeline {.cdecl.}
     makePass*: proc(desc: ptr PassDesc): sgfx.Pass {.cdecl.}
+    allocImage*: proc(): sgfx.Image {.cdecl.}
     allocShader*: proc(): sgfx.Shader {.cdecl.}
+    initImage*: proc(imgId: sgfx.Image; desc: ptr sgfx.ImageDesc) {.cdecl.}
     initShader*: proc(shdId: sgfx.Shader; desc: ptr ShaderDesc) {.cdecl.}
     registerStage*: proc(name: cstring; parentStage: GfxStage): GfxStage {.cdecl.}
     makeShaderWithData*: proc(vsDataSize: uint32; vsData: ptr UncheckedArray[
@@ -207,6 +210,7 @@ type
     bindShaderToPipeline*: proc(shd: ptr Shader; pipDesc: ptr PipelineDesc;
         vl: ptr VertexLayout): ptr PipelineDesc {.cdecl.}
     getShader*: proc(shaderAssetHandle: AssetHandle): ptr api.Shader {.cdecl.}
+    getTexture*: proc(textureAssetHandle: AssetHandle): ptr api.Texture {.cdecl.}
 
   VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock;
       userData: pointer) {.cdecl.}
@@ -261,10 +265,10 @@ type
     asset*: proc(handle: AssetHandle): Asset {.cdecl.}
 
   Camera* = object
-    forward*: Vec3
-    right*: Vec3
-    up*: Vec3
-    pos*: Vec3
+    forward*: Vec3f
+    right*: Vec3f
+    up*: Vec3f
+    pos*: Vec3f
 
     quat*: Versor
     fFar*: float32
@@ -280,15 +284,16 @@ type
   CameraApi* = object
     perspective*: proc(cam: ptr Camera; proj: ptr Mat4) {.cdecl.}
     view*: proc(cam: ptr Camera; view: ptr Mat4) {.cdecl.}
-    calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr Frustum; fNear,
-        fFar: float32) {.cdecl.}
-    initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle;
-        fNear, fFar: float32) {.cdecl.}
-    lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Vec3) {.cdecl.}
+    # calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr Frustum; fNear,
+    #     fFar: float32) {.cdecl.}
+    initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; 
+      fNear, fFar: float32) {.cdecl.}
+    lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Vec3f) {.cdecl.}
     pitchFps*: proc(cam: ptr FpsCamera; pitch: float32) {.cdecl.}
     yawFps*: proc(cam: ptr FpsCamera; yaw: float32) {.cdecl.}
     forwardFps*: proc(cam: ptr FpsCamera; forward: float32) {.cdecl.}
     strafeFps*: proc(cam: ptr FpsCamera; strafe: float32) {.cdecl.}
+    # pickingRay*: proc(cam: ptr Camera; sp: hmm_vec2): Ray {.cdecl.} 
 
   JobPriority* = enum
     jpHigh
