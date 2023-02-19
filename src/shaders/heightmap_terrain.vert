@@ -17,7 +17,7 @@ void main()
     v_texcoord0 = a_texcoord0;
     v_position = a_position.xyz;
     // v_position.y = textureLod(s_heightTexture, a_texcoord0, 0).x * 255.0;
-    v_position.y = texture(s_heightTexture, a_texcoord0).x * 255.0;
+    // v_position.z = texture(s_heightTexture, a_texcoord0).x * 255.0;
     
     gl_Position = u_modelViewProj * vec4(v_position.xyz, 1.0);
 }

@@ -23,3 +23,6 @@
 	path = thirdparty/stb
 	url = git@github.com:Tail-Wag-Games/stb.git
 	
+[submodule "thirdparty/HandmadeMath"]
+	path = thirdparty/HandmadeMath
+	url = git@github.com:HandmadeMath/HandmadeMath.git

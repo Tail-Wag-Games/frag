@@ -75,7 +75,7 @@ type
     height*: proc(): int32 {.cdecl.}
     keyPressed*: proc(key: Keycode): bool {.cdecl.}
     name*: proc(): cstring {.cdecl.}
-    windowSize*: proc(size: ptr Vec2f) {.cdecl.}
+    windowSize*: proc(size: ptr Vec2) {.cdecl.}
     captureMouse*: proc() {.cdecl.}
     releaseMouse*: proc() {.cdecl.}
 
@@ -265,12 +265,12 @@ type
     asset*: proc(handle: AssetHandle): Asset {.cdecl.}
 
   Camera* = object
-    forward*: Vec3f
-    right*: Vec3f
-    up*: Vec3f
-    pos*: Vec3f
+    forward*: Vec3
+    right*: Vec3
+    up*: Vec3
+    pos*: Vec3
 
-    quat*: Versor
+    quat*: Quaternion
     fFar*: float32
     fNear*: float32
     fov*: float32
@@ -288,7 +288,7 @@ type
     #     fFar: float32) {.cdecl.}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; 
       fNear, fFar: float32) {.cdecl.}
-    lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Vec3f) {.cdecl.}
+    lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Vec3) {.cdecl.}
     pitchFps*: proc(cam: ptr FpsCamera; pitch: float32) {.cdecl.}
     yawFps*: proc(cam: ptr FpsCamera; yaw: float32) {.cdecl.}
     forwardFps*: proc(cam: ptr FpsCamera; forward: float32) {.cdecl.}

@@ -7,7 +7,7 @@ type
     cfg: Config
 
     appFilepath: string
-    windowSize: Vec2f
+    windowSize: Vec2
     keysPressed: array[MaxKeycodes, bool]
 
 var
@@ -49,7 +49,7 @@ proc releaseMouse() {.cdecl.} =
   when defined(Windows):
     ReleaseCapture()
 
-proc windowSize(size: ptr Vec2f) {.cdecl.} =
+proc windowSize(size: ptr Vec2) {.cdecl.} =
   assert size != nil
   size[] = ctx.windowSize
 

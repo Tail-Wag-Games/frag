@@ -3,9 +3,9 @@ from math import PI, almostEqual
 {.passC: "-D CGLM_STATIC".}
 
 
-# when defined(windows):
-#   {.passC: "-D CGLM_FORCE_DEPTH_ZERO_TO_ONE".}
-#   {.passC: "-D CGLM_FORCE_LEFT_HANDED".}
+when defined(windows):
+  {.passC: "-D CGLM_FORCE_DEPTH_ZERO_TO_ONE".}
+  {.passC: "-D CGLM_FORCE_LEFT_HANDED".}
 
 {.passC: "/IC:\\Users\\Zach\\dev\\frag\\thirdparty\\cglm\\include".}
 {.passC: "/IC:\\Users\\Zach\\dev\\frag\\thirdparty\\cglm\\src".}

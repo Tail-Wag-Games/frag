@@ -1,8 +1,8 @@
 import std/math,
-       cglm
+       hmm
 
 export 
-  cglm,
+  hmm,
   math
 
 type
