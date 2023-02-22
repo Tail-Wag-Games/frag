@@ -4,7 +4,7 @@ proc init(cam: ptr Camera; fovDeg: float32; viewport: Rectangle; fNear,
     fFar: float32) {.cdecl.} =
   cam.right = vec3(1.0'f32, 0.0'f32, 0.0'f32)
   cam.up = vec3(0.0'f32, 0.0'f32, 1.0'f32)
-  cam.forward = vec3(0.0'f32, 1.0'f32, 0.0'f32)
+  cam.forward = vec3(0.0'f32, -1.0'f32, 0.0'f32)
   cam.pos = vec3(0.0'f32, 0.0'f32, 0.0'f32)
 
   cam.quat = quaternion(0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32)
@@ -59,43 +59,30 @@ proc perspective(cam: ptr Camera; proj: ptr Mat4) {.cdecl.} =
 
   proj[] = perspective(cam.fov, w / h, cam.fNear, cam.fFar)
 
-proc view(cam: ptr Camera; view: ptr Mat4) {.cdecl.} =
+proc view(cam: ptr Camera; view, invView: ptr Mat4) {.cdecl.} =
   assert(view != nil)
 
-  # view[] = lookAt(cam.pos, addVec3(cam.pos, cam.forward), cam.up)
-  
-  # view[].elements = [
-  #   [cam.right.x, cam.right.y, cam.right.z, -dotVec3(cam.right, cam.pos)],
-  #   [cam.up.x, cam.up.y, cam.up.z, -dotVec3(cam.up, cam.pos)],
-  #   [-cam.forward.x, -cam.forward.y, -cam.forward.z, dotVec3(cam.forward, cam.pos)],
-  #   [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32]
-  # ]
   view[].elements = [
-    [cam.right.x, cam.up.x, -cam.forward.x, 0.0'f32],
-    [cam.right.y, cam.up.y, -cam.forward.y, 0.0'f32],
-    [cam.right.z, cam.up.z, -cam.forward.z, 0.0'f32],
-    [-dotVec3(cam.right, cam.pos), -dotVec3(cam.up, cam.pos), dotVec3(cam.forward, cam.pos), 1.0'f32]
+    [cam.right.x, cam.up.x, cam.forward.x, 0.0'f32],
+    [cam.right.y, cam.up.y, cam.forward.y, 0.0'f32],
+    [cam.right.z, cam.up.z, cam.forward.z, 0.0'f32],
+    [-dotVec3(cam.right, cam.pos), -dotVec3(cam.up, cam.pos), -dotVec3(cam.forward, cam.pos), 1.0'f32]
   ]
 
 proc lookAt(cam: ptr Camera; pos, target, up: Vec3) =
-  cam.forward = normalizeVec3(subtractVec3(target, pos))
-  cam.right = normalizeVec3(cross(cam.forward, up))
-  cam.up = cross(cam.right, cam.forward)
+  cam.forward = normalizeVec3(subtractVec3(pos, target))
+  cam.right = normalizeVec3(cross(up, cam.forward))
+  cam.up = cross(cam.forward, cam.right)
   cam.pos = pos
 
-  var m: Mat4
+  # var m: Mat4
   # m.elements = [
-  #   [cam.right.x, cam.right.y, cam.right.z, 0.0'f32],
-  #   [-cam.up.x, -cam.up.y, -cam.up.z, 0.0'f32],
-  #   [cam.forward.x, cam.forward.y, cam.forward.z, 0.0'f32],
+  #   [cam.right.x, cam.up.x, -cam.forward.x, 0.0'f32],
+  #   [cam.right.y, cam.up.y, -cam.forward.y, 0.0'f32],
+  #   [cam.right.z, cam.up.z, -cam.forward.z, 0.0'f32],
   #   [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32]
   # ]
-  m.elements = [
-    [cam.right.x, -cam.up.x, cam.forward.x, 0.0'f32],
-    [cam.right.y, -cam.up.y, cam.forward.y, 0.0'f32],
-    [cam.right.z, -cam.up.z, cam.forward.z, 0.0'f32],
-    [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32]
-  ]
+  var m = lookAt(pos, target, up)
 
   cam.quat =  mat4ToQuaternion(m)
 

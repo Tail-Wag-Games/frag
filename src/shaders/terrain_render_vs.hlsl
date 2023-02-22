@@ -30,13 +30,13 @@ cbuffer params : register(b1)
 
 cbuffer PerFrameVariables : register(b0)
 {
-    row_major float4x4 _598_u_ModelMatrix : packoffset(c0);
-    row_major float4x4 _598_u_ModelViewMatrix : packoffset(c4);
-    row_major float4x4 _598_u_ViewMatrix : packoffset(c8);
-    row_major float4x4 _598_u_CameraMatrix : packoffset(c12);
-    row_major float4x4 _598_u_ViewProjectionMatrix : packoffset(c16);
-    row_major float4x4 _598_u_ModelViewProjectionMatrix : packoffset(c20);
-    float4 _598_u_FrustumPlanes[6] : packoffset(c24);
+    row_major float4x4 _610_u_ModelMatrix : packoffset(c0);
+    row_major float4x4 _610_u_ModelViewMatrix : packoffset(c4);
+    row_major float4x4 _610_u_ViewMatrix : packoffset(c8);
+    row_major float4x4 _610_u_CameraMatrix : packoffset(c12);
+    row_major float4x4 _610_u_ViewProjectionMatrix : packoffset(c16);
+    row_major float4x4 _610_u_ModelViewProjectionMatrix : packoffset(c20);
+    float4 _610_u_FrustumPlanes[6] : packoffset(c24);
 };
 
 Texture2D<float4> u_DmapSampler : register(t0);
@@ -45,6 +45,7 @@ SamplerState _u_DmapSampler_sampler : register(s0);
 static float4 gl_Position;
 static int gl_InstanceIndex;
 static float2 i_VertexPos;
+static float height;
 static float2 o_TexCoord;
 static float3 o_WorldPos;
 
@@ -58,6 +59,7 @@ struct SPIRV_Cross_Output
 {
     float2 o_TexCoord : TEXCOORD2;
     float3 o_WorldPos : TEXCOORD3;
+    float height : TEXCOORD4;
     float4 gl_Position : SV_Position;
 };
 
@@ -255,9 +257,11 @@ void vert_main()
     float2 triangleTexCoords[3] = _580;
     float2 param_1 = i_VertexPos;
     VertexAttribute attrib = TessellateTriangle(triangleTexCoords, param_1);
-    gl_Position = mul(attrib.position, _598_u_ModelViewProjectionMatrix);
+    attrib.position.z = round(attrib.position.z * 100.0f) / 100.0f;
+    height = -attrib.position.z;
+    gl_Position = mul(attrib.position, _610_u_ModelViewProjectionMatrix);
     o_TexCoord = attrib.texCoord;
-    o_WorldPos = mul(attrib.position, _598_u_ModelMatrix).xyz;
+    o_WorldPos = mul(attrib.position, _610_u_ModelMatrix).xyz;
 }
 
 SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -267,6 +271,7 @@ SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
     vert_main();
     SPIRV_Cross_Output stage_output;
     stage_output.gl_Position = gl_Position;
+    stage_output.height = height;
     stage_output.o_TexCoord = o_TexCoord;
     stage_output.o_WorldPos = o_WorldPos;
     return stage_output;

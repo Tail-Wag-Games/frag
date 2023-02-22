@@ -183,6 +183,7 @@ type
 
   Mat4* {.bycopy, union.} = object
     elements*: array[4, array[4, float32]]
+    raw*: array[16, float32]
     columns*: array[4, m128]
     rows*: array[4, m128]
 
@@ -240,8 +241,8 @@ template `+=`*(l: var Vec3; r: Vec3) =
 template x*(a: Vec4): float32 =
   a.ano_handmademath_pp_86.ano_handmademath_pp_83.ano_handmademath_pp_82.x
 
-template `y=`*(a: var Vec4; b: float32) =
-  a.ano_handmademath_pp_86.ano_handmademath_pp_83.ano_handmademath_pp_82.x = b
+template `x=`*(a: var Vec4; b: float32) =
+  a.ano_handmademath_pp_86.ano_handmademath_pp_83.ano_handmademath_pp_82.y = b
 
 template y*(a: Vec4): float32 =
   a.ano_handmademath_pp_86.ano_handmademath_pp_83.ano_handmademath_pp_82.y
@@ -680,6 +681,134 @@ proc transpose*(Matrix: Mat4): Mat4 {.inline.} =
   
   return res
 
+proc invert*(m: Mat4): Mat4 {.inline.} =
+  var
+    det: float32
+    inv: Mat4
+  
+  inv.raw[0] = m.raw[5]  * m.raw[10] * m.raw[15] - 
+    m.raw[5]  * m.raw[11] * m.raw[14] - 
+    m.raw[9]  * m.raw[6]  * m.raw[15] + 
+    m.raw[9]  * m.raw[7]  * m.raw[14] +
+    m.raw[13] * m.raw[6]  * m.raw[11] - 
+    m.raw[13] * m.raw[7]  * m.raw[10]
+  
+  inv.raw[4] = -m.raw[4]  * m.raw[10] * m.raw[15] + 
+    m.raw[4]  * m.raw[11] * m.raw[14] + 
+    m.raw[8]  * m.raw[6]  * m.raw[15] - 
+    m.raw[8]  * m.raw[7]  * m.raw[14] - 
+    m.raw[12] * m.raw[6]  * m.raw[11] + 
+    m.raw[12] * m.raw[7]  * m.raw[10]
+  
+  inv.raw[8] = m.raw[4]  * m.raw[9] * m.raw[15] - 
+    m.raw[4]  * m.raw[11] * m.raw[13] - 
+    m.raw[8]  * m.raw[5] * m.raw[15] + 
+    m.raw[8]  * m.raw[7] * m.raw[13] + 
+    m.raw[12] * m.raw[5] * m.raw[11] - 
+    m.raw[12] * m.raw[7] * m.raw[9]
+  
+  inv.raw[12] = -m.raw[4]  * m.raw[9] * m.raw[14] + 
+    m.raw[4]  * m.raw[10] * m.raw[13] +
+    m.raw[8]  * m.raw[5] * m.raw[14] - 
+    m.raw[8]  * m.raw[6] * m.raw[13] - 
+    m.raw[12] * m.raw[5] * m.raw[10] + 
+    m.raw[12] * m.raw[6] * m.raw[9]
+  
+  inv.raw[1] = -m.raw[1]  * m.raw[10] * m.raw[15] + 
+    m.raw[1]  * m.raw[11] * m.raw[14] + 
+    m.raw[9]  * m.raw[2] * m.raw[15] - 
+    m.raw[9]  * m.raw[3] * m.raw[14] - 
+    m.raw[13] * m.raw[2] * m.raw[11] + 
+    m.raw[13] * m.raw[3] * m.raw[10]
+  
+  inv.raw[5] = m.raw[0]  * m.raw[10] * m.raw[15] - 
+    m.raw[0]  * m.raw[11] * m.raw[14] - 
+    m.raw[8]  * m.raw[2] * m.raw[15] + 
+    m.raw[8]  * m.raw[3] * m.raw[14] + 
+    m.raw[12] * m.raw[2] * m.raw[11] - 
+    m.raw[12] * m.raw[3] * m.raw[10]
+  
+  inv.raw[9] = -m.raw[0]  * m.raw[9] * m.raw[15] + 
+    m.raw[0]  * m.raw[11] * m.raw[13] + 
+    m.raw[8]  * m.raw[1] * m.raw[15] - 
+    m.raw[8]  * m.raw[3] * m.raw[13] - 
+    m.raw[12] * m.raw[1] * m.raw[11] + 
+    m.raw[12] * m.raw[3] * m.raw[9]
+  
+  inv.raw[13] = m.raw[0]  * m.raw[9] * m.raw[14] - 
+    m.raw[0]  * m.raw[10] * m.raw[13] - 
+    m.raw[8]  * m.raw[1] * m.raw[14] + 
+    m.raw[8]  * m.raw[2] * m.raw[13] + 
+    m.raw[12] * m.raw[1] * m.raw[10] - 
+    m.raw[12] * m.raw[2] * m.raw[9]
+  
+  inv.raw[2] = m.raw[1]  * m.raw[6] * m.raw[15] - 
+    m.raw[1]  * m.raw[7] * m.raw[14] - 
+    m.raw[5]  * m.raw[2] * m.raw[15] + 
+    m.raw[5]  * m.raw[3] * m.raw[14] + 
+    m.raw[13] * m.raw[2] * m.raw[7] - 
+    m.raw[13] * m.raw[3] * m.raw[6]
+  
+  inv.raw[6] = -m.raw[0]  * m.raw[6] * m.raw[15] + 
+    m.raw[0]  * m.raw[7] * m.raw[14] + 
+    m.raw[4]  * m.raw[2] * m.raw[15] - 
+    m.raw[4]  * m.raw[3] * m.raw[14] - 
+    m.raw[12] * m.raw[2] * m.raw[7] + 
+    m.raw[12] * m.raw[3] * m.raw[6]
+  
+  inv.raw[10] = m.raw[0]  * m.raw[5] * m.raw[15] - 
+    m.raw[0]  * m.raw[7] * m.raw[13] - 
+    m.raw[4]  * m.raw[1] * m.raw[15] + 
+    m.raw[4]  * m.raw[3] * m.raw[13] + 
+    m.raw[12] * m.raw[1] * m.raw[7] - 
+    m.raw[12] * m.raw[3] * m.raw[5]
+  
+  inv.raw[14] = -m.raw[0]  * m.raw[5] * m.raw[14] + 
+    m.raw[0]  * m.raw[6] * m.raw[13] + 
+    m.raw[4]  * m.raw[1] * m.raw[14] - 
+    m.raw[4]  * m.raw[2] * m.raw[13] - 
+    m.raw[12] * m.raw[1] * m.raw[6] + 
+    m.raw[12] * m.raw[2] * m.raw[5]
+  
+  inv.raw[3] = -m.raw[1] * m.raw[6] * m.raw[11] + 
+    m.raw[1] * m.raw[7] * m.raw[10] + 
+    m.raw[5] * m.raw[2] * m.raw[11] - 
+    m.raw[5] * m.raw[3] * m.raw[10] - 
+    m.raw[9] * m.raw[2] * m.raw[7] + 
+    m.raw[9] * m.raw[3] * m.raw[6]
+  
+  inv.raw[7] = m.raw[0] * m.raw[6] * m.raw[11] - 
+    m.raw[0] * m.raw[7] * m.raw[10] - 
+    m.raw[4] * m.raw[2] * m.raw[11] + 
+    m.raw[4] * m.raw[3] * m.raw[10] + 
+    m.raw[8] * m.raw[2] * m.raw[7] - 
+    m.raw[8] * m.raw[3] * m.raw[6]
+  
+  inv.raw[11] = -m.raw[0] * m.raw[5] * m.raw[11] + 
+    m.raw[0] * m.raw[7] * m.raw[9] + 
+    m.raw[4] * m.raw[1] * m.raw[11] - 
+    m.raw[4] * m.raw[3] * m.raw[9] - 
+    m.raw[8] * m.raw[1] * m.raw[7] + 
+    m.raw[8] * m.raw[3] * m.raw[5]
+  
+  inv.raw[15] = m.raw[0] * m.raw[5] * m.raw[10] - 
+    m.raw[0] * m.raw[6] * m.raw[9] - 
+    m.raw[4] * m.raw[1] * m.raw[10] + 
+    m.raw[4] * m.raw[2] * m.raw[9] + 
+    m.raw[8] * m.raw[1] * m.raw[6] - 
+    m.raw[8] * m.raw[2] * m.raw[5]
+  
+  det = m.raw[0] * inv.raw[0] + m.raw[1] * inv.raw[4] + 
+    m.raw[2] * inv.raw[8] + m.raw[3] * inv.raw[12]
+  
+  if det == 0:
+    result = mat4d(0.0'f32)
+  
+  det = 1.0'f32 / det
+
+  for i in 0 ..< 16:
+    result.raw[i] = inv.raw[i] * det
+
 proc addMat4*(l: Mat4; r: Mat4): Mat4 {.inline.} =
   var res: Mat4
   res.columns[0] = mm_add_ps(l.columns[0], r.columns[0])
@@ -711,7 +840,9 @@ proc multiplyMat4f*(Matrix: Mat4; Scalar: float32): Mat4 {.inline.} =
   res.columns[3] = mm_mul_ps(Matrix.columns[3], SSEScalar)
   return res
 
-proc multiplyMat4ByVec4*(Matrix: Mat4; v: Vec4): Vec4 {.importc: "HMM_MultiplyMat4ByVec4".}
+proc multiplyMat4ByVec4*(m: Mat4; v: Vec4): Vec4 {.inline.} =
+  result.internalElementsSSE = linearCombineSSE(v.internalElementsSSE, m)
+
 proc divideMat4f*(Matrix: Mat4; Scalar: float32): Mat4 {.inline.} =
   var res: Mat4
   var SSEScalar: m128 = mm_set_ps1(Scalar)
@@ -752,7 +883,27 @@ proc translate*(Translation: Vec3): Mat4 {.inline.} =
   res.elements[3][2] = Translation.z
   return res
 
-proc rotate*(Angle: float32; Axis: Vec3): Mat4 {.importc: "HMM_Rotate".}
+proc rotate*(angle: float32; axis: Vec3): Mat4 {.inline.} =
+  result = mat4d(1.0'f32)
+
+  let 
+    normAxis = normalizeVec3(axis)
+    sinTheta = sinF(degToRad(angle))
+    cosTheta = cosF(degToRad(angle))
+    cosValue = 1.0'f32 - cosTheta
+
+  result.elements[0][0] = (axis.x * axis.x * cosValue) + cosTheta;
+  result.elements[0][1] = (axis.x * axis.y * cosValue) + (axis.z * sinTheta);
+  result.elements[0][2] = (axis.x * axis.z * cosValue) - (axis.y * sinTheta);
+
+  result.elements[1][0] = (axis.y * axis.x * cosValue) - (axis.z * sinTheta);
+  result.elements[1][1] = (axis.y * axis.y * cosValue) + cosTheta;
+  result.elements[1][2] = (axis.y * axis.z * cosValue) + (axis.x * sinTheta);
+
+  result.elements[2][0] = (axis.z * axis.x * cosValue) + (axis.y * sinTheta);
+  result.elements[2][1] = (axis.z * axis.y * cosValue) - (axis.x * sinTheta);
+  result.elements[2][2] = (axis.z * axis.z * cosValue) + cosTheta;
+
 proc scale*(Scale: Vec3): Mat4 {.inline.} =
   var res: Mat4 = mat4d(1.0)
   res.elements[0][0] = Scale.x

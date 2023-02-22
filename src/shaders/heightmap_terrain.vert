@@ -5,6 +5,7 @@ layout (location = TEXCOORD0) in vec2 a_texcoord0;
 
 layout(location = POSITION) out vec3 v_position;
 layout (location = TEXCOORD0) out vec2 v_texcoord0;
+layout (location = TEXCOORD1) out float height;
 
 layout (binding = 0) uniform sampler2D s_heightTexture;
 
@@ -16,7 +17,9 @@ void main()
 {
     v_texcoord0 = a_texcoord0;
     v_position = a_position.xyz;
-    // v_position.y = textureLod(s_heightTexture, a_texcoord0, 0).x * 255.0;
+    v_position.y = textureLod(s_heightTexture, a_texcoord0, 0).x * 65535.0;
+    // v_position.y = (round(textureLod(s_heightTexture, a_texcoord0, 0).x * 4369.0) / 4369.0) * 65535.0;
+    height = v_position.y;
     // v_position.z = texture(s_heightTexture, a_texcoord0).x * 255.0;
     
     gl_Position = u_modelViewProj * vec4(v_position.xyz, 1.0);

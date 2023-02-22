@@ -5,26 +5,31 @@
     "file": "C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render_fs.hlsl",
     "inputs": [
       {
-        "id": 29,
+        "id": 123,
         "name": "i_TexCoord",
         "location": 2
       },
       {
-        "id": 138,
+        "id": 198,
+        "name": "height",
+        "location": 4
+      },
+      {
+        "id": 352,
         "name": "i_WorldPos",
         "location": 3
       }
     ],
     "outputs": [
       {
-        "id": 117,
+        "id": 335,
         "name": "o_FragColor",
         "location": 0
       }
     ],
     "textures": [
       {
-        "id": 13,
+        "id": 107,
         "name": "u_DmapSampler",
         "set": 0,
         "binding": 0,
@@ -32,7 +37,7 @@
         "format": "unknown"
       },
       {
-        "id": 130,
+        "id": 344,
         "name": "u_SmapSampler",
         "set": 0,
         "binding": 1,
@@ -42,7 +47,7 @@
     ],
     "storage_buffers": [
       {
-        "id": 129,
+        "id": 343,
         "name": "cbt_Buffer",
         "array": 1,
         "set": 0,
@@ -54,7 +59,7 @@
     ],
     "uniform_buffers": [
       {
-        "id": 75,
+        "id": 165,
         "name": "params",
         "set": 0,
         "binding": 1,
@@ -87,7 +92,7 @@
         ]
       },
       {
-        "id": 136,
+        "id": 350,
         "name": "PerFrameVariables",
         "set": 0,
         "binding": 0,

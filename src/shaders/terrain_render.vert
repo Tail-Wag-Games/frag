@@ -15,6 +15,7 @@ layout(location = POSITION) in vec2 i_VertexPos;
 
 layout(location = TEXCOORD0) out vec2 o_TexCoord;
 layout(location = TEXCOORD1) out vec3 o_WorldPos;
+layout (location = TEXCOORD2) out float height;
 
 void main()
 {
@@ -34,6 +35,10 @@ void main()
         i_VertexPos
     );
 
+    attrib.position.z = round(attrib.position.z * 100.0) / 100.0;
+
+    height = -attrib.position.z;
+    
     gl_Position = u_ModelViewProjectionMatrix * attrib.position;
     o_TexCoord  = attrib.texCoord;
     o_WorldPos  = (u_ModelMatrix * attrib.position).xyz;

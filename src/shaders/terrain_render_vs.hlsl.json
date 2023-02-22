@@ -15,12 +15,17 @@
     ],
     "outputs": [
       {
-        "id": 609,
+        "id": 597,
+        "name": "height",
+        "location": 4
+      },
+      {
+        "id": 621,
         "name": "o_TexCoord",
         "location": 2
       },
       {
-        "id": 613,
+        "id": 625,
         "name": "o_WorldPos",
         "location": 3
       }
@@ -82,7 +87,7 @@
         ]
       },
       {
-        "id": 598,
+        "id": 610,
         "name": "PerFrameVariables",
         "set": 0,
         "binding": 0,

@@ -188,6 +188,7 @@ type
     appendBuffer*: proc(buf: Buffer; data: pointer;
         dataSize: int32): int32 {.cdecl.}
     updateImage*: proc(img: sgfx.Image; data: ptr ImageData) {.cdecl.}
+    mapImage*: proc(img: Image; offset: int32; data: sgfx.Range) {.cdecl.}
 
   GfxApi* = object
     staged*: GfxDrawApi
@@ -283,7 +284,7 @@ type
 
   CameraApi* = object
     perspective*: proc(cam: ptr Camera; proj: ptr Mat4) {.cdecl.}
-    view*: proc(cam: ptr Camera; view: ptr Mat4) {.cdecl.}
+    view*: proc(cam: ptr Camera; view, invView: ptr Mat4) {.cdecl.}
     # calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr Frustum; fNear,
     #     fFar: float32) {.cdecl.}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; 

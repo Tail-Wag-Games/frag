@@ -158,6 +158,9 @@ proc `-`*[T; S: SomeInteger](p: ptr T, offset: S): ptr T =
 proc `-`*[T](p1: ptr T, p2: ptr T): uint =
   return (cast[uint](p1) - (cast[uint](p2)))
 
+proc `+`*[T](p1: ptr T, p2: ptr T): uint =
+  return (cast[uint](p1) + (cast[uint](p2)))
+
 proc `-`*[S: SomeInteger](p: pointer, offset: S): pointer =
   ## Decrements pointer `p` by `offset` that jumps memory in increments of
   ## single bytes.

@@ -145,11 +145,12 @@ const
   cmdUpdateBuffer = Command(12)
   cmdUpdateImage = Command(13)
   cmdAppendBuffer = Command(14)
-  cmdBeginProfile = Command(15)
-  cmdFinishProfile = Command(16)
-  cmdStagePush = Command(17)
-  cmdStagePop = Command(18)
-  cmdCount = Command(19)
+  cmdMapImage = Command(15)
+  cmdBeginProfile = Command(16)
+  cmdFinishProfile = Command(17)
+  cmdStagePush = Command(18)
+  cmdStagePop = Command(19)
+  cmdCount = Command(20)
 
   SgsChunkCC = makeFourCC('S', 'G', 'S', ' ')
   SgsChunkStageCC = makeFourCC('S', 'T', 'A', 'G')
@@ -687,8 +688,6 @@ proc onLoadTexture(data: ptr AssetLoadData; params: ptr AssetLoadParams;
     
     let numMips = tex.info.mips - firstMip
 
-    echo numMips, " ", tex.info.mips, " ", firstMip
-
     var
       w = tex.info.width
       h = tex.info.height
@@ -872,14 +871,14 @@ proc runUpdateImageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
   curOffset += sizeof(Image)
   var data = cast[ptr ImageData](addr(buff[curOffset]))[]
   curOffset += sizeof(ImageData)
-  let startOffset = curOffset
+  let startOffset = addr(buff[curOffset])
 
   for face in 0 ..< ord(cubefaceNum):
     for mip in 0 ..< maxMipmaps:
       if bool(data.subimage[face][mip].size):
-        data.subimage[face][mip].`addr` = addr(buff[startOffset]) + cast[int](data.subimage[face][mip].`addr`)
+        data.subimage[face][mip].`addr` = startOffset + cast[int](data.subimage[face][mip].`addr`)
         curOffset += data.subimage[face][mip].size
-  
+
   sgfx.c_updateImage(imgId, addr(data))
   result = (buff: buff, offset: curOffset)
 
@@ -900,9 +899,22 @@ proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
   let sBuff = addr(ctx.streamBuffers[streamIndex])
   assert(sBuff != nil)
   assert(sBuff.buf.id == buf.id, "streaming buffers probably destroyed during render or update")
-  mapBuffer(buf, streamOffset, Range(`addr`: addr(buff[curOffset]),
-      size: dataSize))
+  # mapBuffer(buf, streamOffset, Range(`addr`: addr(buff[curOffset]), size: dataSize), true)
   curOffset += dataSize
+
+  result = (buff: buff, offset: curOffset)
+
+proc runMapImageCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
+    buff: ptr UncheckedArray[uint8], offset: int] =
+  var curOffset = offset
+  let buf = cast[ptr Image](addr(buff[curOffset]))[]
+  curOffset += sizeof(Image)
+  let bufOffset = cast[ptr int32](addr(buff[curOffset]))[]
+  curOffset += sizeof(int32)
+  var data = cast[ptr sgfx.Range](addr(buff[curOffset]))[]
+  curOffset += sizeof(data)
+
+  sgfx.c_mapImage(buf, bufOffset, addr(data), false)
 
   result = (buff: buff, offset: curOffset)
 
@@ -946,6 +958,7 @@ const runCommandCallbacks = [
     runUpdateBufferCb,
     runUpdateImageCb,
     runAppendBufferCb,
+    runMapImageCb,
     runBeginProfileSampleCb,
     runEndProfileSampleCb,
     runBeginStageCb,
@@ -1410,7 +1423,7 @@ proc updateImage(img: Image; data: ptr ImageData) {.cdecl.} =
   
   var
     offset = 0
-    buff = initParamsBuff(cb, sizeof(sgfx.Image) + sizeof(ImageData), offset)
+    buff = initParamsBuff(cb, sizeof(sgfx.Image) + sizeof(ImageData) + imageSize, offset)
 
   let r = CommandBufferRef(
     key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
@@ -1452,6 +1465,32 @@ proc validateStageDependencies() =
           false,
           &"attempting to execute stage {stage.name} which depends on {parent.name}, however {parent.name} is not rendered"
         )
+
+proc mapImage(buf: sgfx.Image; buffOffset: int32; data: sgfx.Range) {.cdecl.} =
+  let cb = addr(ctx.cmdBuffersFeed[coreApi.jobThreadIndex()])
+
+  assert(bool(cb.runningStage.id), "must invoke `beginStage` before invoking this procedure")
+  assert(cb.cmdIdx < uint16.high, "maximum number of graphics calls exceeded")
+
+  var
+    offset = 0
+    buff = initParamsBuff(cb, sizeof(sgfx.Image) + sizeof(int32) + sizeof(data), offset)
+
+  let r = CommandBufferRef(
+    key: uint32(cb.stageOrder shl 16) or uint32(cb.cmdIdx),
+    cmdBufferIdx: cb.index,
+    cmd: cmdMapImage,
+    paramsOffset: offset
+  )
+
+  add(cb.refs, r)
+  inc(cb.cmdIdx)
+
+  cast[ptr Image](buff)[] = buf
+  buff += sizeof(Image)
+  cast[ptr int32](buff)[] = buffOffset
+  buff += sizeof(int32)
+  cast[ptr sgfx.Range](buff)[] = data
 
 proc executeCommandBuffer(cmds: var seq[CommandBuffer]): int =
   assert(coreApi.jobThreadIndex() == 0, "`executeCommandBuffer` must be invoked from main thread")
@@ -1853,7 +1892,8 @@ gfxApi = GfxApi(
     drawIndexedInstancedIndirect: drawIndexedInstancedIndirect,
     finishPass: finishPass,
     appendBuffer: appendBuffer,
-    updateImage: updateImage
+    updateImage: updateImage,
+    mapImage: mapImage
   ),
   glFamily: glFamily,
   makeBuffer: makeBuffer,

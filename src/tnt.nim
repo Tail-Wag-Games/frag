@@ -6,6 +6,9 @@ export
   math
 
 type
+  Ray* = object
+    dir*, orig*: Vec3
+
   Rectangle* = object
     xMin*, yMin*: float32
     xMax*, yMax*: float32
