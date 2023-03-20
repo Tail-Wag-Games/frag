@@ -3,9 +3,10 @@ import api, fuse, tnt
 proc init(cam: ptr Camera; fovDeg: float32; viewport: Rectangle; fNear,
     fFar: float32) {.cdecl.} =
   cam.right = vec3(1.0'f32, 0.0'f32, 0.0'f32)
-  cam.up = vec3(0.0'f32, 0.0'f32, 1.0'f32)
-  cam.forward = vec3(0.0'f32, -1.0'f32, 0.0'f32)
+  cam.up = vec3(0.0'f32, 1.0'f32, 0.0'f32)
+  cam.forward = vec3(0.0'f32, 0.0'f32, 1.0'f32)
   cam.pos = vec3(0.0'f32, 0.0'f32, 0.0'f32)
+  # cam.pos = vec3(3601.0'f32 / 2.0'f32, 3601.0'f32 / 4.0'f32, 0.0'f32)
 
   cam.quat = quaternion(0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32)
   cam.fov = fovDeg
@@ -62,17 +63,19 @@ proc perspective(cam: ptr Camera; proj: ptr Mat4) {.cdecl.} =
 proc view(cam: ptr Camera; view, invView: ptr Mat4) {.cdecl.} =
   assert(view != nil)
 
-  view[].elements = [
-    [cam.right.x, cam.up.x, cam.forward.x, 0.0'f32],
-    [cam.right.y, cam.up.y, cam.forward.y, 0.0'f32],
-    [cam.right.z, cam.up.z, cam.forward.z, 0.0'f32],
-    [-dotVec3(cam.right, cam.pos), -dotVec3(cam.up, cam.pos), -dotVec3(cam.forward, cam.pos), 1.0'f32]
-  ]
+  view[] = lookAt(cam.pos, addVec3(cam.pos, cam.forward), cam.up)
+
+  # view[].elements = [
+  #   [cam.right.x, cam.up.x, cam.forward.x, 0.0'f32],
+  #   [cam.right.y, cam.up.y, cam.forward.y, 0.0'f32],
+  #   [cam.right.z, cam.up.z, cam.forward.z, 0.0'f32],
+  #   [-dotVec3(cam.right, cam.pos), -dotVec3(cam.up, cam.pos), -dotVec3(cam.forward, cam.pos), 1.0'f32]
+  # ]
 
 proc lookAt(cam: ptr Camera; pos, target, up: Vec3) =
-  cam.forward = normalizeVec3(subtractVec3(pos, target))
-  cam.right = normalizeVec3(cross(up, cam.forward))
-  cam.up = cross(cam.forward, cam.right)
+  cam.forward = normalizeVec3(subtractVec3(target, pos))
+  cam.right = normalizeVec3(cross(cam.forward, up))
+  cam.up = cross(cam.right, cam.forward)
   cam.pos = pos
 
   # var m: Mat4
@@ -82,9 +85,9 @@ proc lookAt(cam: ptr Camera; pos, target, up: Vec3) =
   #   [cam.right.z, cam.up.z, -cam.forward.z, 0.0'f32],
   #   [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32]
   # ]
-  var m = lookAt(pos, target, up)
+  # var m = lookAt(pos, target, up)
 
-  cam.quat =  mat4ToQuaternion(m)
+  # cam.quat =  mat4ToQuaternion(m)
 
 proc initFps(fps: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; fNear,
     fFar: float32) {.cdecl.} =
@@ -95,17 +98,17 @@ proc initFps(fps: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; fNear,
 proc lookAtFps(fps: ptr FpsCamera; pos, target, up: Vec3) {.cdecl.} =
   lookAt(fps.cam.addr, pos, target, up)
 
-  let
-    sinrCosp = 2 * (fps.cam.quat.w * fps.cam.quat.x + fps.cam.quat.y * fps.cam.quat.z)
-    cosrCosp = 1 - 2 * (fps.cam.quat.x * fps.cam.quat.x + fps.cam.quat.y * fps.cam.quat.y)
+  # let
+  #   sinrCosp = 2 * (fps.cam.quat.w * fps.cam.quat.x + fps.cam.quat.y * fps.cam.quat.z)
+  #   cosrCosp = 1 - 2 * (fps.cam.quat.x * fps.cam.quat.x + fps.cam.quat.y * fps.cam.quat.y)
 
-    # sinp = 2 * (fps.cam.quat.w * fps.cam.quat.y - fps.cam.quat.z * fps.cam.quat.x)
+  #   # sinp = 2 * (fps.cam.quat.w * fps.cam.quat.y - fps.cam.quat.z * fps.cam.quat.x)
 
-    sinyCosp = 2 * (fps.cam.quat.w * fps.cam.quat.z + fps.cam.quat.x * fps.cam.quat.y)
-    cosyCosp = 1 - 2 * (fps.cam.quat.y * fps.cam.quat.y + fps.cam.quat.z * fps.cam.quat.z)
+  #   sinyCosp = 2 * (fps.cam.quat.w * fps.cam.quat.z + fps.cam.quat.x * fps.cam.quat.y)
+  #   cosyCosp = 1 - 2 * (fps.cam.quat.y * fps.cam.quat.y + fps.cam.quat.z * fps.cam.quat.z)
   
-  fps.pitch = aTan2F(sinrCosp, cosrCosp)
-  fps.yaw = aTan2F(sinyCosp, cosyCosp)
+  # fps.pitch = aTan2F(sinrCosp, cosrCosp)
+  # fps.yaw = aTan2F(sinyCosp, cosyCosp)
 
 proc updateRot(cam: ptr Camera) =
   let m = quaternionToMat4(cam.quat)

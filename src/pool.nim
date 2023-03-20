@@ -18,10 +18,11 @@ proc poolPageCreate(pool: ptr Pool): ptr Page =
     itemSize = pool.itemSize
 
   var buff = cast[ptr uint8]( 
-    allocAligned(
-      sizeof(Page) + (itemSize + sizeof(pointer)) * cap,
-      16
-    )
+    # allocAligned(
+    #   sizeof(Page) + (itemSize + sizeof(pointer)) * cap,
+    #   16
+    # )
+    alloc(sizeof(Page) + (itemSize + sizeof(pointer)) * cap)
   )
 
   result = cast[ptr Page](buff)
@@ -38,10 +39,11 @@ proc poolCreate*(itemSize, capacity: int): ptr Pool =
   let cap = int32(alignMask(capacity, 15))
 
   var buff = cast[ptr uint8](
-    allocAligned(
-      sizeof(Pool) + sizeof(Page) + (itemSize + sizeof(pointer)) * cap,
-      16
-    )
+    # allocAligned(
+    #   sizeof(Pool) + sizeof(Page) + (itemSize + sizeof(pointer)) * cap,
+    #   16
+    # )
+    alloc(sizeof(Pool) + sizeof(Page) + (itemSize + sizeof(pointer)) * cap)
   )
 
   result = cast[ptr Pool](buff)
@@ -64,12 +66,14 @@ proc poolDestroy*(pool: ptr Pool) =
   var page = pool.pages.next
   while page != nil:
     let next = page.next
-    freeAligned(page)
+    # freeAligned(page)
+    dealloc(page)
     page = next
   pool.capacity = 0
   pool.pages.iter = 0
   pool.pages.next = nil
-  freeAligned(pool)
+  # freeAligned(pool)
+  dealloc(pool)
 
 proc poolNew*(pool: ptr Pool): pointer =
   var page = pool.pages

@@ -184,6 +184,7 @@ proc run*() =
 appApi = AppApi(
   name: name,
   windowSize: windowSize,
+  dpiScale: sapp.c_dpiScale,
   width: cWidth,
   height: cHeight,
   keyPressed: keyPressed,

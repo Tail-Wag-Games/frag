@@ -76,6 +76,7 @@ type
     keyPressed*: proc(key: Keycode): bool {.cdecl.}
     name*: proc(): cstring {.cdecl.}
     windowSize*: proc(size: ptr Vec2) {.cdecl.}
+    dpiScale*: proc(): float32 {.cdecl.}
     captureMouse*: proc() {.cdecl.}
     releaseMouse*: proc() {.cdecl.}
 
@@ -171,10 +172,12 @@ type
   GfxDrawApi* = object
     begin*: proc(stage: GfxStage): bool {.cdecl.}
     finish*: proc() {.cdecl.}
-
+    updateBuffer*: proc(bufId: sgfx.Buffer; data: ptr sgfx.Range) {.cdecl.}
     beginDefaultPass*: proc(passAction: ptr PassAction; width,
         height: int32) {.cdecl.}
     beginPass*: proc(pass: Pass; passAction: ptr PassAction) {.cdecl.}
+    applyViewport*: proc(x, y, width, height: int32; originTopLeft: bool) {.cdecl.}
+    applyScissorRect*: proc(x, y, width, height: int32; originTopLeft: bool) {.cdecl.}
     applyPipeline*: proc(pip: Pipeline) {.cdecl.}
     applyBindings*: proc(bindings: ptr Bindings) {.cdecl.}
     applyUniforms*: proc(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer;
@@ -191,6 +194,7 @@ type
     mapImage*: proc(img: Image; offset: int32; data: sgfx.Range) {.cdecl.}
 
   GfxApi* = object
+    imm*: GfxDrawApi
     staged*: GfxDrawApi
     glFamily*: proc(): bool {.cdecl.}
     makeBuffer*: proc(desc: ptr BufferDesc): sgfx.Buffer {.cdecl.}

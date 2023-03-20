@@ -1,4 +1,4 @@
-import math
+import std/[fenv, math]
 
 {.compile: "./hmm.c".}
 
@@ -210,6 +210,23 @@ template y*(a: Vec2): float32 =
 template `y=`*(a: var Vec2; b: float32) =
   a.ano_handmademath_pp_6.y = b
 
+proc `<`*(a, b: Vec2): bool =
+  result = a.x < b.x and a.y < b.y
+
+proc `~=`*(p1: Vec2, p2: Vec2): bool = abs(p1.x - p2.x) <= epsilon(float32) and abs(p1.y - p2.y) <= epsilon(float32)
+
+proc cmpX*(p1, p2: Vec2): int =
+  if p1.x != p2.x:
+    return cmp(p1.x, p2.x)
+  else:
+    return cmp(p1.y, p2.y)
+
+proc cmpY*(p1, p2: Vec2): int =
+  if p1.y != p2.y:
+    return cmp(p1.y, p2.y)
+  else:
+    return cmp(p1.x, p2.x)
+
 # Vec3
 
 template x*(a: Vec3): float32 =
@@ -273,14 +290,11 @@ template `w=`*(a: var Vec4; b: float32) =
 template x*(a: Quaternion): float32 =
   a.ano_handmademath_pp_152.ano_handmademath_pp_149.ano_handmademath_pp_148.x
 
-template `y=`*(a: var Quaternion; b: float32) =
-  a.ano_handmademath_pp_152.ano_handmademath_pp_149.ano_handmademath_pp_148.x = b
-
 template y*(a: Quaternion): float32 =
   a.ano_handmademath_pp_152.ano_handmademath_pp_149.ano_handmademath_pp_148.y
 
 template `y=`*(a: var Quaternion; b: float32) =
-  a.ano_handmademath_pp_152.ano_handmademath_pp_149.ano_handmademath_pp_148.y = b
+  a.ano_handmademath_pp_152.ano_handmademath_pp_149.ano_handmademath_pp_148.x = b
 
 template z*(a: Quaternion): float32 =
   a.ano_handmademath_pp_152.ano_handmademath_pp_149.ano_handmademath_pp_148.z

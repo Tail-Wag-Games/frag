@@ -746,6 +746,31 @@ proc onReloadTexture(handle: AssetHandle; prevAsset: Asset) {.cdecl.} =
 proc onReleaseTexture(asset: Asset) {.cdecl.} =
   discard
 
+proc beginImmStage(stage: GfxStage): bool {.cdecl.} =
+  block outer:
+    var
+      stg: ptr Stage
+      stgName: cstring
+    
+    acquire(ctx.stageLock)
+    stg = addr(ctx.stages[toIndex(stage.id)])
+    assert(stg.state == ssNone, "begin has already been invoked for this stage")
+    if not stg.enabled:
+      release(ctx.stageLock)
+      result = false
+      break outer
+    stg.state = ssSubmitting
+    stgName = cast[cstring](addr(stg.name[0]))
+    result = true
+    release(ctx.stageLock)
+
+proc finishImmStage() {.cdecl.} =
+  discard
+
+proc applyImmUniforms(stage: sgfx.ShaderStage; ubIndex: int32; data: pointer;
+        numBytes: int32) {.cdecl.} =
+  sgfx.applyUniforms(stage, ubIndex, sgfx.Range(`addr`: data, size: numBytes))
+
 proc runBeginDefaultPassCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
     buff: ptr UncheckedArray[uint8], offset: int] =
   var curOffset = offset
@@ -1863,6 +1888,8 @@ proc initCommandBuffers() =
     ctx.cmdBuffersRender[i].index = i
 
 proc init*() =
+  echo "setting up sokol graphics"
+  
   sgfx.setup(Desc(context: sglue.context()))
 
   initLock(ctx.stageLock)
@@ -1878,6 +1905,19 @@ proc shutdown*() =
   sgfx.shutdown()
 
 gfxApi = GfxApi(
+  imm: GfxDrawApi(
+    begin: beginImmStage,
+    finish: finishImmStage,
+    updateBuffer: sgfx.c_updateBuffer,
+    applyViewport: sgfx.c_applyViewport,
+    applyScissorRect: sgfx.c_applyScissorRect,
+    beginDefaultPass: sgfx.c_beginDefaultPass,
+    applyPipeline: sgfx.c_applyPipeline,
+    applyBindings: sgfx.c_applyBindings,
+    applyUniforms: applyImmUniforms,
+    draw: sgfx.c_draw,
+    finishPass: sgfx.c_endPass,
+  ),
   staged: GfxDrawApi(
     begin: beginStage,
     finish: finishStage,

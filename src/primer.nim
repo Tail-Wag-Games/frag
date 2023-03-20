@@ -1,5 +1,47 @@
 import times
 
+template alignMask*(value, mask: untyped): untyped =
+  (((value.uint) + (mask.uint)) and ((not 0'u) and (not(mask.uint))))
+
+proc alignPtr*(p: pointer; extra: uint; alignment: uint32): pointer =
+  type
+    AnonUn {.union.} = object
+      p: pointer
+      address: uint
+  
+  var un: AnonUn
+  un.p = p
+  
+  let 
+    unaligned = un.address + extra
+    mask = alignment - 1
+    aligned = alignMask(unaligned, mask)
+  un.address = aligned
+  return un.p
+
+proc isPowerOfTwo*(n: int): bool {.inline.} =
+  (n and (n - 1)) == 0
+
+func roundNextMultipleOf*(x: Natural, n: Natural): int {.inline.} =
+  assert isPowerOfTwo(n)
+  result = (x + n - 1) and not(n - 1)
+
+# proc allocAligned*(size: int; alignment: static Natural): pointer {.inline.} =
+#   static:
+#     assert isPowerOfTwo(alignment)
+
+#   let requiredMem = roundNextMultipleOf(size, alignment)
+#   result = mi_malloc_aligned(csize_t(requiredMem), csize_t(alignment))
+
+# proc allocAligned*(size: int; alignment: Natural): pointer {.inline.} =
+#   assert isPowerOfTwo(alignment)
+
+#   let requiredMem = roundNextMultipleOf(size, alignment)
+#   result = mi_malloc_aligned(csize_t(requiredMem), csize_t(alignment))
+
+# proc freeAligned*(p: pointer) {.inline.} =
+#   mi_free(p)
+
 template makeFourCC*(a, b, c, d: untyped): untyped =
   (uint32(a) or (uint32(b) shl 8'u32) or (uint32(c) shl 16'u32) or (uint32(d) shl 24'u32))
 
@@ -21,7 +63,7 @@ proc copyStr*[N: static int](dst: var array[N, char]; src: cstring): ptr char {.
 
   result = addr dst[num]
 
-proc copyStr*(dst: var cstring; src: openArray[char]): ptr char {.discardable.} =
+proc copyStr*(dst: var cstring; src: var openArray[char]): ptr char {.discardable.} =
   let
     len = src.len()
     max = len(dst) - 1

@@ -26,3 +26,9 @@
 [submodule "thirdparty/HandmadeMath"]
 	path = thirdparty/HandmadeMath
 	url = git@github.com:HandmadeMath/HandmadeMath.git
+[submodule "thirdparty/enet"]
+	path = thirdparty/enet
+	url = git@github.com:lsalzman/enet.git
+[submodule "thirdparty/Nuklear"]
+	path = thirdparty/Nuklear
+	url = git@github.com:Immediate-Mode-UI/Nuklear.git

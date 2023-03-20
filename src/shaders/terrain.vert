@@ -26,7 +26,7 @@ void main() {
     // Displacement mapping constants
     float patchSize = 50.0;
     float heightScale = 8.0;
-    vec3 d = vec3(1.0 / 256.0, 1.0 / 256.0, 0.0);
+    vec3 d = vec3(1.0 / 150.0, 1.0 / 150.0, 0.0);
     float dydy = heightScale / patchSize;
 
     // Calculate displacement and differentials (for normal calculation)

@@ -1,6 +1,6 @@
 import std/cpuinfo,
        sokol/gfx as sgfx, sokol/app as sapp, sokol/time as stime,
-       api, asset, fuse, gfx, job, plugin, vfs
+       api, asset, fuse, gfx, imgui, job, plugin, vfs
 
 type
   CoreContext = object
@@ -90,6 +90,10 @@ proc frame*() =
   plugin.update()
 
   gfx.executeCommandBuffers()
+
+  let imguiApi = cast[ptr ImguiApi](pluginApi.getApiByName("imgui", 0))
+  if imguiApi != nil:
+    imguiApi.render()
 
   sgfx.commit()
 

@@ -34,6 +34,10 @@ task compileShaders, "compile shaders":
   exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --sgs -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.sgs --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.frag"
   exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=terrainRender -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.frag"
   exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=offscreen -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\offscreen.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\viewer.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\viewer.frag"
+  exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=nuklear -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\nuklear.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\nuklear.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\nuklear.frag"
+
+task buildImguiPlugin, "build imgui plugin":
+  exec "nim c --debugger:native --threads:on --app:lib --out:imgui.dll .\\src\\imgui_plugin.nim"
 
 task build3dPlugin, "build 3d plugin":
   exec "nim c --debugger:native --threads:on --app:lib --out:three_d.dll .\\src\\three_d_plugin.nim"

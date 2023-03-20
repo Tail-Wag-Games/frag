@@ -8,6 +8,13 @@ type
     skip*: proc(user: pointer, n: cint)
     user*: proc(user: pointer): cint
 
+  Components* {.size: sizeof(cint).} = enum
+    Default = 0 # req_comp only
+    Grey = 1
+    GreyAlpha = 2
+    Rgb = 3
+    RgbAlpha = 4
+
 proc load*(filename: cstring, x: ptr cint, y: ptr cint, comp: ptr int32, req_comp: int32): ptr cuchar {.importc: "stbi_load",cdecl.}
 proc load_from_memory*(buffer: ptr cuchar, len: cint, x: ptr cint, y: ptr cint, comp: ptr int32, req_comp: int32): ptr cuchar {.importc: "stbi_load_from_memory".}
 proc load_from_callbacks*(clbk: ptr IoCallbacks, user: pointer, x: ptr cint, y: ptr cint, comp: ptr int32, req_comp: int32): ptr cuchar {.importc: "stbi_load_from_callbacks".}
@@ -50,3 +57,9 @@ proc zlib_decode_malloc*(buffer: ptr cchar, len: cint, outlen: ptr cint): ptr cc
 proc zlib_decode_buffer*(obuffer: ptr cchar, olen: cint, ibuffer: ptr cchar, ilen: cint): cint {.importc: "stbi_zlib_decode_buffer".}
 proc zlib_decode_noheader_malloc*(buffer: ptr cchar, len: cint, outlen: ptr cint): ptr cchar {.importc: "stbi_zlib_decode_noheader_malloc".}
 proc zlib_decode_noheader_buffer*(obuffer: ptr cchar, olen: cint, ibuffer: ptr cchar, ilen: cint): cint {.importc: "stbi_zlib_decode_noheader_buffer".}
+
+
+proc write_png*(filename: cstring, w: cint, h: cint, comp: Components, data: pointer, stride_in_bytes: cint): cint {.importc: "stbi_write_png",cdecl.}
+proc write_bmp*(filename: cstring, w: cint, h: cint, comp: Components, data: pointer): cint {.importc: "stbi_write_bmp".}
+proc write_tga*(filename: cstring, w: cint, h: cint, comp: Components, data: pointer): cint {.importc: "stbi_write_tga".}
+proc write_hdr*(filename: cstring, w: cint, h: cint, comp: Components, data: pointer): cint {.importc: "stbi_write_hdr".}
