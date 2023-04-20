@@ -1,23 +1,23 @@
 import times
 
-template alignMask*(value, mask: untyped): untyped =
-  (((value.uint) + (mask.uint)) and ((not 0'u) and (not(mask.uint))))
+# template alignMask*(value, mask: untyped): untyped =
+#   (((value.uint) + (mask.uint)) and ((not 0'u) and (not(mask.uint))))
 
-proc alignPtr*(p: pointer; extra: uint; alignment: uint32): pointer =
-  type
-    AnonUn {.union.} = object
-      p: pointer
-      address: uint
+# proc alignPtr*(p: pointer; extra: uint; alignment: uint32): pointer =
+#   type
+#     AnonUn {.union.} = object
+#       p: pointer
+#       address: uint
   
-  var un: AnonUn
-  un.p = p
+#   var un: AnonUn
+#   un.p = p
   
-  let 
-    unaligned = un.address + extra
-    mask = alignment - 1
-    aligned = alignMask(unaligned, mask)
-  un.address = aligned
-  return un.p
+#   let 
+#     unaligned = un.address + extra
+#     mask = alignment - 1
+#     aligned = alignMask(unaligned, mask)
+#   un.address = aligned
+#   return un.p
 
 proc isPowerOfTwo*(n: int): bool {.inline.} =
   (n and (n - 1)) == 0

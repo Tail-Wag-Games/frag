@@ -19,7 +19,7 @@ type
     windowWidth*: int32
     windowHeight*: int32
 
-    numJobThreads*: int32
+    numJobThreads*: int32 = -1'i32
     maxActiveJobs*: int32
     jobStackSize*: int32
 

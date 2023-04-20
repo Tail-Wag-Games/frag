@@ -41,7 +41,7 @@ proc testAndDelJob(j: Job): bool {.cdecl.} =
   assert(ctx.jobCtx != nil)
   result = job.testAndDel(ctx.jobCtx, j)
 
-proc numJobThreads(): int32 {.cdecl.} =
+proc numJobThreads(): int32 {.cdecl, exportc: "num_job_threads".} =
   ctx.numThreads
 
 proc jobThreadIndex(): int32 {.cdecl.} =

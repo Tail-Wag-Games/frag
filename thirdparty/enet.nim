@@ -23,12 +23,25 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
+{.passC: "/IC:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\include".}
+
+{.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\callbacks.c".}
+{.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\compress.c".}
+{.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\host.c".}
+{.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\list.c".}
+{.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\packet.c".}
+{.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\peer.c".}
+{.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\protocol.c".}
+
 when defined(Linux):
   const Lib = "libenet.so(|.7)" #.1(|.0.3)"
 elif defined(Windows):
-  const Lib = "enet.dll"
+  {.compile: "C:\\Users\\Zach\\dev\\frag\\thirdparty\\enet\\win32.c".}
+  {.passL: "ws2_32.lib".}
+  {.passL: "winmm.lib".}
 else:
   {.error: "Your platform has not been accounted for.".}
+
 {.deadCodeElim: on.}
 const
   ENET_VERSION_MAJOR* = 1
@@ -41,13 +54,13 @@ const
   ENET_VERSION* = ENET_VERSION_CREATE(ENET_VERSION_MAJOR, ENET_VERSION_MINOR,
                                       ENET_VERSION_PATCH)
 type
-  TVersion* = cuint
-  TSocketType*{.size: sizeof(cint).} = enum
+  Version* = cuint
+  SocketType*{.size: sizeof(cint).} = enum
     ENET_SOCKET_TYPE_STREAM = 1, ENET_SOCKET_TYPE_DATAGRAM = 2
-  TSocketWait*{.size: sizeof(cint).} = enum
+  SocketWait*{.size: sizeof(cint).} = enum
     ENET_SOCKET_WAIT_NONE = 0, ENET_SOCKET_WAIT_SEND = (1 shl 0),
     ENET_SOCKET_WAIT_RECEIVE = (1 shl 1)
-  TSocketOption*{.size: sizeof(cint).} = enum
+  SocketOption*{.size: sizeof(cint).} = enum
     ENET_SOCKOPT_NONBLOCK = 1, ENET_SOCKOPT_BROADCAST = 2,
     ENET_SOCKOPT_RCVBUF = 3, ENET_SOCKOPT_SNDBUF = 4,
     ENET_SOCKOPT_REUSEADDR = 5
@@ -65,45 +78,40 @@ const
   ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT* = 255
   ENET_PROTOCOL_MAXIMUM_PEER_ID* = 0x00000FFF
 type
-  PAddress* = ptr TAddress
-  TAddress*{.pure, final.} = object
+  Address*{.pure, final.} = object
     host*: cuint
     port*: cushort
 
-  TPacketFlag*{.size: sizeof(cint).} = enum
+  PacketFlag*{.size: sizeof(cint).} = enum
     FlagReliable = (1 shl 0),
     FlagUnsequenced = (1 shl 1),
     NoAllocate = (1 shl 2),
     UnreliableFragment = (1 shl 3)
 
-  TENetListNode*{.pure, final.} = object
-    next*: ptr T_ENetListNode
-    previous*: ptr T_ENetListNode
+  ENetListNode*{.pure, final.} = object
+    next*: ptr ENetListNode
+    previous*: ptr ENetListNode
 
-  PENetListIterator* = ptr TENetListNode
-  TENetList*{.pure, final.} = object
-    sentinel*: TENetListNode
+  ENetList*{.pure, final.} = object
+    sentinel*: ENetListNode
 
-  T_ENetPacket*{.pure, final.} = object
-  TPacketFreeCallback* = proc (a2: ptr T_ENetPacket){.cdecl.}
+  ENetPacket*{.pure, final.} = object
+  PacketFreeCallback* = proc (a2: ptr ENetPacket){.cdecl.}
 
-  PPacket* = ptr TPacket
-  TPacket*{.pure, final.} = object
+  Packet*{.pure, final.} = object
     referenceCount*: csize
     flags*: cint
     data*: cstring #ptr cuchar
     dataLength*: csize
-    freeCallback*: TPacketFreeCallback
+    freeCallback*: PacketFreeCallback
 
-  PAcknowledgement* = ptr TAcknowledgement
-  TAcknowledgement*{.pure, final.} = object
-    acknowledgementList*: TEnetListNode
+  Acknowledgement*{.pure, final.} = object
+    acknowledgementList*: EnetListNode
     sentTime*: cuint
-    command*: TEnetProtocol
+    command*: EnetProtocol
 
-  POutgoingCommand* = ptr TOutgoingCommand
-  TOutgoingCommand*{.pure, final.} = object
-    outgoingCommandList*: TEnetListNode
+  OutgoingCommand*{.pure, final.} = object
+    outgoingCommandList*: EnetListNode
     reliableSequenceNumber*: cushort
     unreliableSequenceNumber*: cushort
     sentTime*: cuint
@@ -112,21 +120,20 @@ type
     fragmentOffset*: cuint
     fragmentLength*: cushort
     sendAttempts*: cushort
-    command*: TEnetProtocol
-    packet*: PPacket
+    command*: EnetProtocol
+    packet*: Packet
 
-  PIncomingCommand* = ptr TIncomingCommand
-  TIncomingCommand*{.pure, final.} = object
-    incomingCommandList*: TEnetListNode
+  IncomingCommand*{.pure, final.} = object
+    incomingCommandList*: EnetListNode
     reliableSequenceNumber*: cushort
     unreliableSequenceNumber*: cushort
-    command*: TEnetProtocol
+    command*: EnetProtocol
     fragmentCount*: cuint
     fragmentsRemaining*: cuint
     fragments*: ptr cuint
-    packet*: ptr TPacket
+    packet*: ptr Packet
 
-  TPeerState*{.size: sizeof(cint).} = enum
+  PeerState*{.size: sizeof(cint).} = enum
     ENET_PEER_STATE_DISCONNECTED = 0, ENET_PEER_STATE_CONNECTING = 1,
     ENET_PEER_STATE_ACKNOWLEDGING_CONNECT = 2,
     ENET_PEER_STATE_CONNECTION_PENDING = 3,
@@ -134,7 +141,7 @@ type
     ENET_PEER_STATE_DISCONNECT_LATER = 6, ENET_PEER_STATE_DISCONNECTING = 7,
     ENET_PEER_STATE_ACKNOWLEDGING_DISCONNECT = 8, ENET_PEER_STATE_ZOMBIE = 9
 
-  TENetProtocolCommand*{.size: sizeof(cint).} = enum
+  ENetProtocolCommand*{.size: sizeof(cint).} = enum
     ENET_PROTOCOL_COMMAND_NONE = 0, ENET_PROTOCOL_COMMAND_ACKNOWLEDGE = 1,
     ENET_PROTOCOL_COMMAND_CONNECT = 2,
     ENET_PROTOCOL_COMMAND_VERIFY_CONNECT = 3,
@@ -147,7 +154,7 @@ type
     ENET_PROTOCOL_COMMAND_THROTTLE_CONFIGURE = 11,
     ENET_PROTOCOL_COMMAND_SEND_UNRELIABLE_FRAGMENT = 12,
     ENET_PROTOCOL_COMMAND_COUNT = 13, ENET_PROTOCOL_COMMAND_MASK = 0x0000000F
-  TENetProtocolFlag*{.size: sizeof(cint).} = enum
+  ENetProtocolFlag*{.size: sizeof(cint).} = enum
     ENET_PROTOCOL_HEADER_SESSION_SHIFT = 12,
     ENET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED = (1 shl 6),
     ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE = (1 shl 7),
@@ -157,22 +164,22 @@ type
     ENET_PROTOCOL_HEADER_FLAG_MASK = ENET_PROTOCOL_HEADER_FLAG_COMPRESSED.cint or
         ENET_PROTOCOL_HEADER_FLAG_SENT_TIME.cint
 
-  TENetProtocolHeader*{.pure, final.} = object
+  ENetProtocolHeader*{.pure, final.} = object
     peerID*: cushort
     sentTime*: cushort
 
-  TENetProtocolCommandHeader*{.pure, final.} = object
+  ENetProtocolCommandHeader*{.pure, final.} = object
     command*: cuchar
     channelID*: cuchar
     reliableSequenceNumber*: cushort
 
-  TENetProtocolAcknowledge*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolAcknowledge*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     receivedReliableSequenceNumber*: cushort
     receivedSentTime*: cushort
 
-  TENetProtocolConnect*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolConnect*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     outgoingPeerID*: cushort
     incomingSessionID*: cuchar
     outgoingSessionID*: cuchar
@@ -187,8 +194,8 @@ type
     connectID*: cuint
     data*: cuint
 
-  TENetProtocolVerifyConnect*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolVerifyConnect*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     outgoingPeerID*: cushort
     incomingSessionID*: cuchar
     outgoingSessionID*: cuchar
@@ -202,40 +209,40 @@ type
     packetThrottleDeceleration*: cuint
     connectID*: cuint
 
-  TENetProtocolBandwidthLimit*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolBandwidthLimit*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     incomingBandwidth*: cuint
     outgoingBandwidth*: cuint
 
-  TENetProtocolThrottleConfigure*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolThrottleConfigure*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     packetThrottleInterval*: cuint
     packetThrottleAcceleration*: cuint
     packetThrottleDeceleration*: cuint
 
-  TENetProtocolDisconnect*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolDisconnect*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     data*: cuint
 
-  TENetProtocolPing*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolPing*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
 
-  TENetProtocolSendReliable*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolSendReliable*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     dataLength*: cushort
 
-  TENetProtocolSendUnreliable*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolSendUnreliable*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     unreliableSequenceNumber*: cushort
     dataLength*: cushort
 
-  TENetProtocolSendUnsequenced*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolSendUnsequenced*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     unsequencedGroup*: cushort
     dataLength*: cushort
 
-  TENetProtocolSendFragment*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocolSendFragment*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
     startSequenceNumber*: cushort
     dataLength*: cushort
     fragmentCount*: cuint
@@ -245,8 +252,8 @@ type
 
   ## this is incomplete; need helper templates or something
   ## ENetProtocol
-  TENetProtocol*{.pure, final.} = object
-    header*: TENetProtocolCommandHeader
+  ENetProtocol*{.pure, final.} = object
+    header*: ENetProtocolCommandHeader
 const
   ENET_BUFFER_MAXIMUM* = (1 + 2 * ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS)
   ENET_HOST_RECEIVE_BUFFER_SIZE = 256 * 1024
@@ -280,11 +287,11 @@ when defined(Linux):
   const
     ENET_SOCKET_NULL*: cint = -1
   type
-    TENetSocket* = cint
-    TENetBuffer*{.pure, final.} = object
+    ENetSocket* = cint
+    ENetBuffer*{.pure, final.} = object
       data*: pointer
       dataLength*: csize
-    TENetSocketSet* = Tfd_set
+    ENetSocketSet* = Tfd_set
   ## see if these are different on win32, if not then get rid of these
   template ENET_HOST_TO_NET_16*(value: expr): expr =
     (htons(value))
@@ -307,13 +314,13 @@ when defined(Linux):
 elif defined(Windows):
   ## put the content of win32.h in here
   import winlean
-  let ENET_SOCKET_NULL*: cint = INVALID_SOCKET.cint
+  let ENET_SOCKET_NULL*: cint = -1'i32
   type
-    TENetSocket* = winlean.SocketHandle
-    TEnetBuffer* = object
+    ENetSocket* = winlean.SocketHandle
+    EnetBuffer* = object
       dataLength*: csize #these fields are flipped for win32, i'm sure theres a good reason for it
       data*: pointer
-    TENetSocketSet* = Tfd_set
+    ENetSocketSet* = Tfd_set
 
   template ENET_HOST_TO_NET_16*(value: untyped): untyped =
     (htons(value))
@@ -336,32 +343,28 @@ elif defined(Windows):
 
 
 type
-  PEnetBuffer* = ptr TEnetBuffer
-
-  PChannel* = ptr TChannel
-  TChannel*{.pure, final.} = object
+  Channel*{.pure, final.} = object
     outgoingReliableSequenceNumber*: cushort
     outgoingUnreliableSequenceNumber*: cushort
     usedReliableWindows*: cushort
     reliableWindows*: array[0..ENET_PEER_RELIABLE_WINDOWS - 1, cushort]
     incomingReliableSequenceNumber*: cushort
     incomingUnreliableSequenceNumber*: cushort
-    incomingReliableCommands*: TENetList
-    incomingUnreliableCommands*: TENetList
+    incomingReliableCommands*: ENetList
+    incomingUnreliableCommands*: ENetList
 
-  PPeer* = ptr TPeer
-  TPeer*{.pure, final.} = object
-    dispatchList*: TEnetListNode
-    host*: ptr THost
+  Peer*{.pure, final.} = object
+    dispatchList*: EnetListNode
+    host*: ptr Host
     outgoingPeerID*: cushort
     incomingPeerID*: cushort
     connectID*: cuint
     outgoingSessionID*: cuchar
     incomingSessionID*: cuchar
-    address*: TAddress
+    address*: Address
     data*: pointer
-    state*: TPeerState
-    channels*: PChannel
+    state*: PeerState
+    channels*: ptr Channel
     channelCount*: csize
     incomingBandwidth*: cuint
     outgoingBandwidth*: cuint
@@ -395,12 +398,12 @@ type
     windowSize*: cuint
     reliableDataInTransit*: cuint
     outgoingReliableSequenceNumber*: cushort
-    acknowledgements*: TENetList
-    sentReliableCommands*: TENetList
-    sentUnreliableCommands*: TENetList
-    outgoingReliableCommands*: TENetList
-    outgoingUnreliableCommands*: TENetList
-    dispatchedCommands*: TENetList
+    acknowledgements*: ENetList
+    sentReliableCommands*: ENetList
+    sentUnreliableCommands*: ENetList
+    outgoingReliableCommands*: ENetList
+    outgoingUnreliableCommands*: ENetList
+    dispatchedCommands*: ENetList
     needsDispatch*: cint
     incomingUnsequencedGroup*: cushort
     outgoingUnsequencedGroup*: cushort
@@ -408,48 +411,46 @@ type
                               cuint]
     eventData*: cuint
 
-  PCompressor* = ptr TCompressor
-  TCompressor*{.pure, final.} = object
+  Compressor*{.pure, final.} = object
     context*: pointer
-    compress*: proc (context: pointer; inBuffers: ptr TEnetBuffer;
+    compress*: proc (context: pointer; inBuffers: ptr EnetBuffer;
                      inBufferCount: csize; inLimit: csize;
                      outData: ptr cuchar; outLimit: csize): csize{.cdecl.}
     decompress*: proc (context: pointer; inData: ptr cuchar; inLimit: csize;
                        outData: ptr cuchar; outLimit: csize): csize{.cdecl.}
     destroy*: proc (context: pointer){.cdecl.}
 
-  TChecksumCallback* = proc (buffers: ptr TEnetBuffer;
+  ChecksumCallback* = proc (buffers: ptr EnetBuffer;
       bufferCount: csize): cuint{.
       cdecl.}
 
-  PHost* = ptr THost
-  THost*{.pure, final.} = object
-    socket*: TEnetSocket
-    address*: TAddress
+  Host*{.pure, final.} = object
+    socket*: EnetSocket
+    address*: Address
     incomingBandwidth*: cuint
     outgoingBandwidth*: cuint
     bandwidthThrottleEpoch*: cuint
     mtu*: cuint
     randomSeed*: cuint
     recalculateBandwidthLimits*: cint
-    peers*: ptr TPeer
+    peers*: ptr Peer
     peerCount*: csize
     channelLimit*: csize
     serviceTime*: cuint
-    dispatchQueue*: TEnetList
+    dispatchQueue*: EnetList
     continueSending*: cint
     packetSize*: csize
     headerFlags*: cushort
     commands*: array[0..ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS - 1,
-                     TEnetProtocol]
+                     EnetProtocol]
     commandCount*: csize
-    buffers*: array[0..ENET_BUFFER_MAXIMUM - 1, TEnetBuffer]
+    buffers*: array[0..ENET_BUFFER_MAXIMUM - 1, EnetBuffer]
     bufferCount*: csize
-    checksum*: TChecksumCallback
-    compressor*: TCompressor
+    checksum*: ChecksumCallback
+    compressor*: Compressor
     packetData*: array[0..ENET_PROTOCOL_MAXIMUM_MTU - 1,
                        array[0..2 - 1, cuchar]]
-    receivedAddress*: TAddress
+    receivedAddress*: Address
     receivedData*: ptr cuchar
     receivedDataLength*: csize
     totalSentData*: cuint
@@ -457,31 +458,31 @@ type
     totalReceivedData*: cuint
     totalReceivedPackets*: cuint
 
-  TEventType*{.size: sizeof(cint).} = enum
+  EventType*{.size: sizeof(cint).} = enum
     EvtNone = 0, EvtConnect = 1,
     EvtDisconnect = 2, EvtReceive = 3
-  PEvent* = ptr TEvent
-  TEvent*{.pure, final.} = object
-    kind*: TEventType
-    peer*: PPeer
+
+  Event*{.pure, final.} = object
+    kind*: EventType
+    peer*: ptr Peer
     channelID*: int8
     data*: int32
-    packet*: PPacket
+    packet*: ptr Packet
 
-  TENetCallbacks*{.pure, final.} = object
+  ENetCallbacks*{.pure, final.} = object
     malloc*: proc (size: csize): pointer{.cdecl.}
     free*: proc (memory: pointer){.cdecl.}
     no_memory*: proc (){.cdecl.}
 
 {.pragma: ic, importc: "enet_$1".}
-{.push cdecl, dynlib: Lib.}
+{.push cdecl.}
 proc enet_malloc*(a2: csize): pointer{.
   importc: "enet_malloc".}
 proc enet_free*(a2: pointer){.
   importc: "enet_free".}
 
 proc initialize*: cint {.ic.}
-proc initialize*(version: TVersion; inits: ptr TEnetCallbacks): cint {.
+proc initialize*(version: Version; inits: ptr EnetCallbacks): cint {.
   importc: "enet_initialize_with_callbacks".}
 proc deinitialize* {.ic.}
 proc time_get*: cuint {.ic.}
@@ -489,7 +490,7 @@ proc time_set*(time: cuint) {.ic.}
 
 proc enetInit*(): cint{.deprecated,
   importc: "enet_initialize".}
-proc enetInit*(version: TVersion; inits: ptr TENetCallbacks): cint{.deprecated,
+proc enetInit*(version: Version; inits: ptr ENetCallbacks): cint{.deprecated,
   importc: "enet_initialize_with_callbacks".}
 proc enetDeinit*(){.deprecated,
   importc: "enet_deinitialize".}
@@ -499,174 +500,174 @@ proc enet_time_set*(a2: cuint){.deprecated,
   importc: "enet_time_set".}
 
 #enet docs are pretty lacking, i'm not sure what the names of these arguments should be
-proc createSocket*(kind: TSocketType): TEnetSocket{.
+proc createSocket*(kind: SocketType): EnetSocket{.
   importc: "enet_socket_create".}
 
 
-proc bindTo*(socket: TEnetSocket; address: var TAddress): cint{.
+proc bindTo*(socket: EnetSocket; address: var Address): cint{.
   importc: "enet_socket_bind".}
-proc bindTo*(socket: TEnetSocket; address: ptr TAddress): cint{.
+proc bindTo*(socket: EnetSocket; address: ptr Address): cint{.
   importc: "enet_socket_bind".}
-proc listen*(socket: TEnetSocket; a3: cint): cint{.
+proc listen*(socket: EnetSocket; a3: cint): cint{.
   importc: "enet_socket_listen".}
-proc accept*(socket: TEnetSocket; address: var TAddress): TEnetSocket{.
+proc accept*(socket: EnetSocket; address: var Address): EnetSocket{.
   importc: "enet_socket_accept".}
-proc accept*(socket: TEnetSocket; address: ptr TAddress): TEnetSocket{.
+proc accept*(socket: EnetSocket; address: ptr Address): EnetSocket{.
   importc: "enet_socket_accept".}
-proc connect*(socket: TEnetSocket; address: var TAddress): cint{.
+proc connect*(socket: EnetSocket; address: var Address): cint{.
   importc: "enet_socket_connect".}
-proc connect*(socket: TEnetSocket; address: ptr TAddress): cint{.
+proc connect*(socket: EnetSocket; address: ptr Address): cint{.
   importc: "enet_socket_connect".}
-proc send*(socket: TEnetSocket; address: var TAddress; buffer: ptr TEnetBuffer;
+proc send*(socket: EnetSocket; address: var Address; buffer: ptr EnetBuffer;
     size: csize): cint{.
   importc: "enet_socket_send".}
-proc send*(socket: TEnetSocket; address: ptr TAddress; buffer: ptr TEnetBuffer;
+proc send*(socket: EnetSocket; address: ptr Address; buffer: ptr EnetBuffer;
     size: csize): cint{.
   importc: "enet_socket_send".}
-proc receive*(socket: TEnetSocket; address: var TAddress;
-               buffer: ptr TEnetBuffer; size: csize): cint{.
+proc receive*(socket: EnetSocket; address: var Address;
+               buffer: ptr EnetBuffer; size: csize): cint{.
   importc: "enet_socket_receive".}
-proc receive*(socket: TEnetSocket; address: ptr TAddress;
-               buffer: ptr TEnetBuffer; size: csize): cint{.
+proc receive*(socket: EnetSocket; address: ptr Address;
+               buffer: ptr EnetBuffer; size: csize): cint{.
   importc: "enet_socket_receive".}
-proc wait*(socket: TEnetSocket; a3: ptr cuint; a4: cuint): cint{.
+proc wait*(socket: EnetSocket; a3: ptr cuint; a4: cuint): cint{.
   importc: "enet_socket_wait".}
-proc setOption*(socket: TEnetSocket; a3: TSocketOption; a4: cint): cint{.
+proc setOption*(socket: EnetSocket; a3: SocketOption; a4: cint): cint{.
   importc: "enet_socket_set_option".}
-proc destroy*(socket: TEnetSocket){.
+proc destroy*(socket: EnetSocket){.
   importc: "enet_socket_destroy".}
-proc select*(socket: TEnetSocket; a3: ptr TENetSocketSet;
-              a4: ptr TENetSocketSet; a5: cuint): cint{.
+proc select*(socket: EnetSocket; a3: ptr ENetSocketSet;
+              a4: ptr ENetSocketSet; a5: cuint): cint{.
   importc: "enet_socketset_select".}
 
-proc setHost*(address: PAddress; hostName: cstring): cint{.
-  importc: "enet_address_set_host".}
-proc setHost*(address: var TAddress; hostName: cstring): cint{.
-  importc: "enet_address_set_host".}
-proc getHostIP*(address: var TAddress; hostName: cstring;
+proc setHost*(address: ptr Address; hostName: cstring): cint{.
+  importc: "enet_address_set_host", discardable.}
+proc setHost*(address: var Address; hostName: cstring): cint{.
+  importc: "enet_address_set_host", discardable.}
+proc getHostIP*(address: var Address; hostName: cstring;
     nameLength: csize): cint{.
   importc: "enet_address_get_host_ip".}
-proc getHost*(address: var TAddress; hostName: cstring;
+proc getHost*(address: var Address; hostName: cstring;
     nameLength: csize): cint{.
   importc: "enet_address_get_host".}
 
 ## Call the above two funcs but trim the result string
-proc getHostIP*(address: var TAddress; hostName: var string;
+proc getHostIP*(address: var Address; hostName: var string;
     nameLength: csize): cint{.inline.} =
   hostName.setLen nameLength
   result = getHostIP(address, cstring(hostName), nameLength)
   if result == 0:
     hostName.setLen(len(cstring(hostName)))
-proc getHost*(address: var TAddress; hostName: var string;
+proc getHost*(address: var Address; hostName: var string;
     nameLength: csize): cint{.inline.} =
   hostName.setLen nameLength
   result = getHost(address, cstring(hostName), nameLength)
   if result == 0:
     hostName.setLen(len(cstring(hostName)))
 
-converter toCINT*(some: TPacketFlag): cint = some.cint
+converter toCINT*(some: PacketFlag): cint = some.cint
 
-proc createPacket*(data: pointer; len: csize; flag: cint): PPacket{.
+proc createPacket*(data: pointer; len: csize; flag: cint): ptr Packet{.
   importc: "enet_packet_create".}
-proc createPacket*(data: string; flag: cint): PPacket {.
+proc createPacket*(data: string; flag: cint): ptr Packet {.
   inline.} = createPacket(data.cstring, data.len + 1, flag)
 
 from macros import nestList, newCall, ident
-macro shallowPacket*(data: pointer; len: int; flags: set[TPacketFlag]): untyped =
+macro shallowPacket*(data: pointer; len: int; flags: set[PacketFlag]): untyped =
   let flags_n = nestList(ident("or"), flags)
   result = newCall("enet.createPacket", data, len, flags_n)
 
 
-proc destroy*(packet: PPacket){.
+proc destroy*(packet: ptr Packet){.
   importc: "enet_packet_destroy".}
-proc resize*(packet: PPacket; dataLength: csize): cint{.
+proc resize*(packet: ptr Packet; dataLength: csize): cint{.
   importc: "enet_packet_resize".}
 
-proc crc32*(buffers: ptr TEnetBuffer; bufferCount: csize): cuint{.
+proc crc32*(buffers: ptr EnetBuffer; bufferCount: csize): cuint{.
   importc: "enet_crc32".}
 
-proc createHost*(address: ptr TAddress; maxConnections, maxChannels: csize;
-    downSpeed, upSpeed: cuint): PHost{.
+proc createHost*(address: ptr Address; maxConnections, maxChannels: csize;
+    downSpeed, upSpeed: cuint): ptr Host{.
   importc: "enet_host_create".}
-proc createHost*(address: var TAddress; maxConnections, maxChannels: csize;
-    downSpeed, upSpeed: cuint): PHost{.
+proc createHost*(address: var Address; maxConnections, maxChannels: csize;
+    downSpeed, upSpeed: cuint): ptr Host{.
   importc: "enet_host_create".}
-proc destroy*(host: PHost){.
+proc destroy*(host: ptr Host){.
   importc: "enet_host_destroy".}
-proc connect*(host: PHost; address: ptr TAddress; channelCount: csize;
-    data: cuint): PPeer{.
+proc connect*(host: ptr Host; address: ptr Address; channelCount: csize;
+    data: cuint): ptr Peer{.
   importc: "enet_host_connect".}
-proc connect*(host: PHost; address: var TAddress; channelCount: csize;
-    data: cuint): PPeer{.
+proc connect*(host: ptr Host; address: var Address; channelCount: csize;
+    data: cuint): ptr Peer{.
   importc: "enet_host_connect".}
 
-proc checkEvents*(host: PHost; event: var TEvent): cint{.
+proc checkEvents*(host: ptr Host; event: var Event): cint{.
   importc: "enet_host_check_events".}
-proc checkEvents*(host: PHost; event: ptr TEvent): cint{.
+proc checkEvents*(host: ptr Host; event: ptr Event): cint{.
   importc: "enet_host_check_events".}
-proc hostService*(host: PHost; event: var TEvent; timeout: cuint): cint{.
+proc hostService*(host: ptr Host; event: var Event; timeout: cuint): cint{.
   importc: "enet_host_service".}
-proc hostService*(host: PHost; event: ptr TEvent; timeout: cuint): cint{.
+proc hostService*(host: ptr Host; event: ptr Event; timeout: cuint): cint{.
   importc: "enet_host_service".}
-proc flush*(host: PHost){.
+proc flush*(host: ptr Host){.
   importc: "enet_host_flush".}
-proc broadcast*(host: PHost; channelID: cuchar; packet: PPacket){.
+proc broadcast*(host: ptr Host; channelID: cuchar; packet: ptr Packet){.
   importc: "enet_host_broadcast".}
-proc compress*(host: PHost; compressor: PCompressor){.
+proc compress*(host: ptr Host; compressor: ptr Compressor){.
   importc: "enet_host_compress".}
-proc compressWithRangeCoder*(host: PHost): cint{.
+proc compressWithRangeCoder*(host: ptr Host): cint{.
   importc: "enet_host_compress_with_range_coder".}
-proc channelLimit*(host: PHost; channelLimit: csize){.
+proc channelLimit*(host: ptr Host; channelLimit: csize){.
   importc: "enet_host_channel_limit".}
-proc bandwidthLimit*(host: PHost; incoming, outgoing: cuint){.
+proc bandwidthLimit*(host: ptr Host; incoming, outgoing: cuint){.
   importc: "enet_host_bandwidth_limit".}
-proc bandwidthThrottle*(host: PHost){.
+proc bandwidthThrottle*(host: ptr Host){.
   importc: "enet_host_bandwidth_throttle".}
 
 
-proc send*(peer: PPeer; channel: cuchar; packet: PPacket): cint{.
+proc send*(peer: ptr Peer; channel: cuchar; packet: ptr Packet): cint{.
   importc: "enet_peer_send".}
-proc receive*(peer: PPeer; channelID: ptr cuchar): PPacket{.
+proc receive*(peer: ptr Peer; channelID: ptr cuchar): ptr Packet{.
   importc: "enet_peer_receive".}
-proc ping*(peer: PPeer){.
+proc ping*(peer: ptr Peer){.
   importc: "enet_peer_ping".}
-proc reset*(peer: PPeer){.
+proc reset*(peer: ptr Peer){.
   importc: "enet_peer_reset".}
-proc disconnect*(peer: PPeer; a3: cuint){.
+proc disconnect*(peer: ptr Peer; a3: cuint){.
   importc: "enet_peer_disconnect".}
-proc disconnectNow*(peer: PPeer; a3: cuint){.
+proc disconnectNow*(peer: ptr Peer; a3: cuint){.
   importc: "enet_peer_disconnect_now".}
-proc disconnectLater*(peer: PPeer; a3: cuint){.
+proc disconnectLater*(peer: ptr Peer; a3: cuint){.
   importc: "enet_peer_disconnect_later".}
-proc throttleConfigure*(peer: PPeer; interval, acceleration,
+proc throttleConfigure*(peer: ptr Peer; interval, acceleration,
     deceleration: cuint){.
   importc: "enet_peer_throttle_configure".}
-proc throttle*(peer: PPeer; rtt: cuint): cint{.
+proc throttle*(peer: ptr Peer; rtt: cuint): cint{.
   importc: "enet_peer_throttle".}
-proc resetQueues*(peer: PPeer){.
+proc resetQueues*(peer: ptr Peer){.
   importc: "enet_peer_reset_queues".}
-proc setupOutgoingCommand*(peer: PPeer; outgoingCommand: POutgoingCommand){.
+proc setupOutgoingCommand*(peer: ptr Peer; outgoingCommand: ptr OutgoingCommand){.
   importc: "enet_peer_setup_outgoing_command".}
 
-proc queueOutgoingCommand*(peer: PPeer; command: ptr TEnetProtocol;
-          packet: PPacket; offset: cuint; length: cushort): POutgoingCommand{.
+proc queueOutgoingCommand*(peer: ptr Peer; command: ptr EnetProtocol;
+          packet: ptr Packet; offset: cuint; length: cushort): ptr OutgoingCommand{.
   importc: "enet_peer_queue_outgoing_command".}
-proc queueIncomingCommand*(peer: PPeer; command: ptr TEnetProtocol;
-                    packet: PPacket; fragmentCount: cuint): PIncomingCommand{.
+proc queueIncomingCommand*(peer: ptr Peer; command: ptr EnetProtocol;
+                    packet: ptr Packet; fragmentCount: cuint): ptr IncomingCommand{.
   importc: "enet_peer_queue_incoming_command".}
-proc queueAcknowledgement*(peer: PPeer; command: ptr TEnetProtocol;
-                            sentTime: cushort): PAcknowledgement{.
+proc queueAcknowledgement*(peer: ptr Peer; command: ptr EnetProtocol;
+                            sentTime: cushort): ptr Acknowledgement{.
   importc: "enet_peer_queue_acknowledgement".}
-proc dispatchIncomingUnreliableCommands*(peer: PPeer; channel: PChannel){.
+proc dispatchIncomingUnreliableCommands*(peer: ptr Peer; channel: ptr Channel){.
   importc: "enet_peer_dispatch_incoming_unreliable_commands".}
-proc dispatchIncomingReliableCommands*(peer: PPeer; channel: PChannel){.
+proc dispatchIncomingReliableCommands*(peer: ptr Peer; channel: ptr Channel){.
   importc: "enet_peer_dispatch_incoming_reliable_commands".}
 
 proc createRangeCoder*(): pointer{.
   importc: "enet_range_coder_create".}
 proc rangeCoderDestroy*(context: pointer){.
   importc: "enet_range_coder_destroy".}
-proc rangeCoderCompress*(context: pointer; inBuffers: PEnetBuffer; inLimit,
+proc rangeCoderCompress*(context: pointer; inBuffers: ptr EnetBuffer; inLimit,
                bufferCount: csize; outData: cstring; outLimit: csize): csize{.
   importc: "enet_range_coder_compress".}
 proc rangeCoderDecompress*(context: pointer; inData: cstring; inLimit: csize;
@@ -678,5 +679,5 @@ proc protocolCommandSize*(commandNumber: cuchar): csize{.
 {.pop.}
 
 from hashes import `!$`, `!&`, Hash, hash
-proc hash*(x: TAddress): Hash {.nimcall, noSideEffect.} =
+proc hash*(x: Address): Hash {.nimcall, noSideEffect.} =
   result = !$(hash(x.host.int32) !& hash(x.port.int16))
