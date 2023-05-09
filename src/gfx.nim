@@ -1,6 +1,6 @@
 import std/[atomics, hashes, json, jsonutils, locks, os, sequtils, strformat],
        sokol/gfx as sgfx, sokol/glue as sglue, stb_image,
-       api, fuse, logging, io, primer
+       api, fuse, logging, io, primer, tnt
 
 type
   SgsIffChunk = object
@@ -924,8 +924,9 @@ proc runAppendBufferCb(buff: ptr UncheckedArray[uint8], offset: int): tuple[
   let sBuff = addr(ctx.streamBuffers[streamIndex])
   assert(sBuff != nil)
   assert(sBuff.buf.id == buf.id, "streaming buffers probably destroyed during render or update")
-  # mapBuffer(buf, streamOffset, Range(`addr`: addr(buff[curOffset]), size: dataSize), true)
-  curOffset += dataSize
+  var rng = Range(`addr`: addr(buff[curOffset]), size: dataSize)
+  mapBuffer(buf, streamOffset, rng)
+  curOffset += rng.size
 
   result = (buff: buff, offset: curOffset)
 
@@ -1397,6 +1398,9 @@ proc appendBuffer(buf: Buffer; data: pointer;
 
   assert(idx != -1, "buffer must be streamed and not destroyed during render")
   let sBuff = addr((ctx.streamBuffers[idx]))
+  # echo "sBuff offset: ", sBuff.offset
+  # echo "dataSize: ", dataSize
+  # echo "sBuff size: ", sBuff.size
   assert(load(sBuff.offset) + uint32(dataSize) <= uint32(sBuff.size))
 
   let
@@ -1785,6 +1789,71 @@ proc getShader(shaderAssetHandle: AssetHandle): ptr api.Shader {.cdecl.} =
   result = cast[ptr api.Shader](assetApi.asset(shaderAssetHandle).p)
   assert(not isNil(result), "shader is not loaded or missing")
 
+proc whiteTexture(): sgfx.Image {.cdecl.} =
+  result = ctx.textureManager.whiteTexture.img
+
+proc createCheckerTexture(checkerSize, size: int32; colors: array[2, tnt.Color]): Texture {.cdecl.} =
+  assert(size mod 4 == 0, "size must be a multiple of four")
+  assert(size mod checkerSize == 0, "checkerSize must be divisible by size")
+
+  let 
+    numBytes = int32(size * size * sizeof(uint32))
+    pixels = cast[ptr UncheckedArray[uint32]](alloc(numBytes))
+    tilesPerDim = size div checkerSize
+    numTiles = tilesPerDim * tilesPerDim
+    poss = cast[ptr UncheckedArray[IVec2]](alloc(sizeof(IVec2) * numTiles))
+
+  assert(poss != nil)
+  var x, y: int32
+  for i in 0 ..< numTiles:
+    poss[i] = ivec2i(x, y)
+    x += checkerSize
+    if x >= size:
+      x = 0
+      y += checkerSize
+  
+  var colorIdx = 0
+  for i in 0 ..< numTiles:
+    let
+      p = poss[i]
+      c = colors[colorIdx]
+    if i == 0 or (i + 1) mod tilesPerDim != 0:
+      colorIdx = 1 - colorIdx
+    let
+      endX = p.xy.x + checkerSize
+      endY = p.xy.y + checkerSize
+    
+    for y in p.xy.y ..< endY:
+      for x in p.xy.x ..< endX:
+        let pixel = x + y * size
+        pixels[pixel] = c.element
+
+  var imgDesc = sgfx.ImageDesc(
+    width: size,
+    height: size,
+    numMipmaps: 1,
+    pixelFormat: pixelFormatRgba8,
+    label: "frag_checker_texture"
+  )
+  imgDesc.data.subimage[0][0].`addr` = pixels
+  imgDesc.data.subimage[0][0].size = numBytes
+  result = Texture(
+    img: gfxApi.makeImage(addr(imgDesc)),
+    info: TextureInfo(
+      imageType: imageType2d,
+      format: pixelFormatRgba8,
+      memSizeBytes: numBytes,
+      width: size,
+      height: size,
+      dl: DepthLayers(layers: 1),
+      mips: 1,
+      bpp: 32
+    )
+  )
+
+  dealloc(poss)
+  dealloc(pixels)
+
 proc getTexture(textureAssetHandle: AssetHandle): ptr api.Texture {.cdecl.} =
   result = cast[ptr api.Texture](assetApi.asset(textureAssetHandle).p)
   assert(not isNil(result), "texture is not loaded or missing")
@@ -1949,5 +2018,7 @@ gfxApi = GfxApi(
   makeShaderWithData: makeShaderWithData,
   bindShaderToPipeline: bindShaderToPipeline,
   getShader: getShader,
+  whiteTexture: whiteTexture,
+  createCheckerTexture: createCheckerTexture,
   getTexture: getTexture
 )

@@ -215,6 +215,8 @@ type
     bindShaderToPipeline*: proc(shd: ptr Shader; pipDesc: ptr PipelineDesc;
         vl: ptr VertexLayout): ptr PipelineDesc {.cdecl.}
     getShader*: proc(shaderAssetHandle: AssetHandle): ptr api.Shader {.cdecl.}
+    whiteTexture*: proc(): sgfx.Image {.cdecl.}
+    createCheckerTexture*: proc(checkerSize, size: int32; colors: array[2, tnt.Color]): Texture {.cdecl.}
     getTexture*: proc(textureAssetHandle: AssetHandle): ptr api.Texture {.cdecl.}
 
   VfsAsyncReadCallback* = proc(path: cstring; mem: ptr MemBlock;
@@ -289,8 +291,8 @@ type
   CameraApi* = object
     perspective*: proc(cam: ptr Camera; proj: ptr Mat4) {.cdecl.}
     view*: proc(cam: ptr Camera; view, invView: ptr Mat4) {.cdecl.}
-    # calcFrustumPointsRange*: proc(cam: ptr Camera; frustum: ptr Frustum; fNear,
-    #     fFar: float32) {.cdecl.}
+    calcFrustumPointsRange*: proc(cam: ptr Camera; fNear,
+        fFar: float32): array[8, Vec3] {.cdecl.}
     initFps*: proc(cam: ptr FpsCamera; fovDeg: float32; viewport: Rectangle; 
       fNear, fFar: float32) {.cdecl.}
     lookAtFps*: proc(cam: ptr FpsCamera; pos, target, up: Vec3) {.cdecl.}
@@ -377,6 +379,10 @@ converter toVfsFlag*(lf: uint32): VfsFlag = VfsFlag(lf)
 
 proc `==`*(a, b: ShaderCodeType): bool {.borrow.}
 proc `==`*(a, b: ShaderStage): bool {.borrow.}
+
+converter toVertexAttribute*(desc: sgfx.VertexAttrDesc): VertexAttribute =
+  result.offset = desc.offset
+  result.format = desc.format
 
 macro fragState*(t: typed): untyped =
   let typeNode = if t[0][1].kind == nnkSym:

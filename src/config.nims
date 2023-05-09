@@ -27,7 +27,7 @@ patchFile("stdlib", "malloc", "alloc")
 
 when defined Windows:
   switch("cc", "vcc")
-  switch("passC", "/Zi /FS /Od /MTd")
+  switch("passC", "/Zi /FS /Od")
   switch("passL", "/Zi /FS /Od")
   # switch("passC", "/fsanitize=address")
-  switch("verbosity", "3")
+  # switch("verbosity", "3")

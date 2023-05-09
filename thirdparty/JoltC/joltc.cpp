@@ -212,20 +212,6 @@ JPH_CAPI void JPH_JobSystemThreadPool_Destroy(JPH_JobSystemThreadPool* system)
     }
 }
 
-JPH_JobSystemFibers* JPH_JobSystemFibers_Create(uint32_t maxJobs, uint32_t maxBarriers, int inNumThreads)
-{
-    auto job_system = new JPH::JobSystemFibers(maxJobs, maxBarriers, inNumThreads);
-    return reinterpret_cast<JPH_JobSystemFibers*>(job_system);
-}
-
-JPH_CAPI void JPH_JobSystemFibers_Destroy(JPH_JobSystemFibers* system)
-{
-    if (system)
-    {
-        delete reinterpret_cast<JPH::JobSystemFibers*>(system);
-    }
-}
-
 /* JPH_BroadPhaseLayerInterface */
 static JPH_BroadPhaseLayerInterface_Procs g_BroadPhaseLayerInterface_Procs;
 

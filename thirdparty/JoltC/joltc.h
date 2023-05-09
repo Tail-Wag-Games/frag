@@ -144,7 +144,6 @@ typedef struct JPH_SubShapeIDPair
 
 typedef struct JPH_TempAllocator                    JPH_TempAllocator;
 typedef struct JPH_JobSystemThreadPool              JPH_JobSystemThreadPool;
-typedef struct JPH_JobSystemFibers                  JPH_JobSystemFibers;
 typedef struct JPH_BroadPhaseLayerInterface         JPH_BroadPhaseLayerInterface;
 typedef struct JPH_ObjectVsBroadPhaseLayerFilter    JPH_ObjectVsBroadPhaseLayerFilter;
 typedef struct JPH_ObjectLayerPairFilter            JPH_ObjectLayerPairFilter;
@@ -199,10 +198,6 @@ JPH_CAPI void JPH_TempAllocator_Destroy(JPH_TempAllocator* allocator);
 /* JPH_JobSystemThreadPool */
 JPH_CAPI JPH_JobSystemThreadPool* JPH_JobSystemThreadPool_Create(uint32_t maxJobs, uint32_t maxBarriers, int inNumThreads);
 JPH_CAPI void JPH_JobSystemThreadPool_Destroy(JPH_JobSystemThreadPool* system);
-
-/* JPH_JobSystemFibers */
-JPH_CAPI JPH_JobSystemThreadPool* JPH_JobSystemFibers_Create(uint32_t maxJobs, uint32_t maxBarriers, int inNumThreads);
-JPH_CAPI void JPH_JobSystemFibers_Destroy(JPH_JobSystemThreadPool* system);
 
 /* JPH_ShapeSettings */
 JPH_CAPI void JPH_ShapeSettings_Destroy(JPH_ShapeSettings* settings);

@@ -1,16 +1,26 @@
 import std/[fenv, math],
        hmm
 
-export 
+export
   hmm,
   math
 
 type
-  Region2* = concept e
-    bbox(e) is BBox2
-    inside(Vec2, e) is bool
-    dist(Vec2, e) is float32
-    distSq(Vec2, e) is float32
+  Rgba* = object
+    r*, g*, b*, a*: uint8
+
+  Color* {.union.} = object
+    rgba*: Rgba
+    element*: uint32
+
+  # 3d Transform
+  Tx3d* = object
+    pos*: Vec3
+    rot*: Mat3
+
+  Box* = object
+    tx*: Tx3d
+    e*: Vec3
 
   Ray* = object
     dir*, orig*: Vec3
@@ -18,9 +28,23 @@ type
   Rectangle* = object
     xMin*, yMin*: float32
     xMax*, yMax*: float32
-  
-  BBox2* = object
-    min*, max*: Vec2
+
+  MinMax* = object
+    xMin*, yMin*, zMin*: float32
+    xMax*, yMax*, zMax*: float32
+
+  VMinMax* = object
+    vMin*: Vec3
+    vMax*: Vec3
+
+  AABB* {.union.} = object
+    minMax*: MinMax
+    vMinMax*: VMinMax
+    f*: array[6, float32]
+    
+
+let
+  White* = Color(rgba: Rgba(r: 255, g: 255, b: 255, a: 255))
 
 proc rectangle(xMin, yMin, xMax, yMax: float32): Rectangle =
   result.xMin = xMin
@@ -52,4 +76,31 @@ proc area*(a, b, c: Vec2): float32 =
 
 proc dist*(p1: Vec2, p2: Vec2): float32 = subtractVec2(p1, p2).length
 
-proc bbox*(min, max: Vec2): BBox2 = BBox2(min: min, max: max)
+proc aabbf*(xMin, yMin, zMin, xMax, yMax, zMax: float32): AABB = 
+  result = AABB(minMax: MinMax(xMin: xMin, yMin: yMin, zMin: zMin, xMax: xMax, yMax: yMax, zMax: zMax))
+
+proc aabbv*(vMin, vMax: Vec3): AABB =
+  result = AABB(vMinMax: VMinMax(vMin: vMin, vMax: vMax))
+
+proc corner(aabb: ptr AABB; idx: int): Vec3 =
+  assert(idx < 8)
+  result = vec3(
+    if bool(idx and 1): aabb.minMax.xMax else: aabb.minMax.xMin,
+    if bool(idx and 4): aabb.minMax.yMax else: aabb.minMax.yMin,
+    if bool(idx and 2): aabb.minMax.zMax else: aabb.minMax.zMin
+  )
+
+proc corners*(aabb: ptr AABB): array[8, Vec3] =
+  for i in 0 ..< 8:
+    result[i] = corner(aabb, i)
+
+proc addPoint*(aabb: ptr AABB; pt: Vec3) =
+  aabb[] = aabbv(min(aabb.vMinMax.vMin, pt), max(aabb.vMinMax.vMax, pt))
+
+proc normalizePlane*(va, vb, vc: Vec3): Vec3 =
+  let
+    ba = vb - va
+    ca = vc - va
+    baca = cross(ca, ba)
+  
+  result = normalizeVec3(baca)

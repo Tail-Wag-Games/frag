@@ -162,6 +162,13 @@ type
     ano_handmademath_pp_21*: INNER_C_STRUCT_handmademath_pp_20
     elements*: array[2, float32]
 
+  IVec2XY* = object
+    x*, y*: int32
+
+  IVec2* {.bycopy, union.} = object
+    xy*: IVec2XY
+    elements*: array[2, int32]
+
   Vec3* {.bycopy, union.} = object
     ano_handmademath_pp_32*: INNER_C_STRUCT_handmademath_pp_31
     ano_handmademath_pp_37*: INNER_C_STRUCT_handmademath_pp_36
@@ -180,6 +187,10 @@ type
     ano_handmademath_pp_120*: INNER_C_STRUCT_handmademath_pp_117
     elements*: array[4, float32]
     internalElementsSSE*: m128
+
+  Mat3* {.bycopy, union.} = object
+    elements*: array[3, array[3, float32]]
+    columns*: array[3, Vec3]
 
   Mat4* {.bycopy, union.} = object
     elements*: array[4, array[4, float32]]
@@ -229,6 +240,9 @@ proc cmpY*(p1, p2: Vec2): int =
 
 # Vec3
 
+proc `[]`*(v: Vec3; idx: SomeUnsignedInt): float32 =
+  result = v.elements[idx]
+
 template x*(a: Vec3): float32 =
   a.ano_handmademath_pp_32.x
 
@@ -252,6 +266,12 @@ template `*`*(v: Vec3; f: float32): Vec3 =
 
 template `+=`*(l: var Vec3; r: Vec3) =
   l = addVec3(l, r)
+
+template `+`*(l, r: Vec3): Vec3 =
+  addVec3(l, r)
+
+template `-`*(l, r: Vec3): Vec3 =
+  subtractVec3(l, r)
 
 # Vec4
 
@@ -316,6 +336,10 @@ template `w=`*(a: var Quaternion; b: float32) =
 
 template `*`*(l, r: Quaternion): Quaternion =
   multiplyQuaternion(l, r)
+
+# Mat3
+proc `[]`*(m: Mat3; idx: SomeUnsignedInt): Vec3 =
+  result = m.columns[idx]
 
 # Mat4
 
@@ -403,6 +427,10 @@ proc vec2*(x: float32; y: float32): Vec2 {.inline.} =
   res.ano_handmademath_pp_6.y = y
   return res
 
+proc ivec2i*(x, y: int32): IVec2 {.inline.} =
+  result.xy.x = x
+  result.xy.y = y
+
 proc vec2i*(x: cint; y: cint): Vec2 {.inline.} =
   var res: Vec2
   res.ano_handmademath_pp_6.x = cast[float32](x)
@@ -426,6 +454,11 @@ proc vec3i*(x: cint; y: cint; z: cint): Vec3 {.inline.} =
 proc vec4*(x: float32; y: float32; z: float32; w: float32): Vec4 {.inline.} =
   var res: Vec4
   res.internalElementsSSE = mm_setr_ps(x, y, z, w)
+  return res
+
+proc vec4*(xyz: Vec3; w: float32): Vec4 {.inline.} =
+  var res: Vec4
+  res.internalElementsSSE = mm_setr_ps(xyz.x, xyz.y, xyz.z, w)
   return res
 
 proc vec4i*(x: cint; y: cint; z: cint; w: cint): Vec4 {.inline.} =
@@ -594,6 +627,12 @@ proc cross*(VecOne: Vec3; VecTwo: Vec3): Vec3 {.inline.} =
   res.y = (VecOne.z * VecTwo.x) - (VecOne.x * VecTwo.z)
   res.z = (VecOne.x * VecTwo.y) - (VecOne.y * VecTwo.x)
   return res
+
+proc min*(a, b: Vec3): Vec3 =
+  result = vec3(min(a.x, b.x), min(a.y, b.y), min(a.z, b.z))
+
+proc max*(a, b: Vec3): Vec3 =
+  result = vec3(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z))
 
 proc lengthSquaredVec2*(A: Vec2): float32 {.inline.} =
   var res: float32 = dotVec2(A, A)

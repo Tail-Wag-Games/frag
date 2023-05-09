@@ -267,8 +267,8 @@ proc frame() =
   jolt.getCenterOfMassPosition(bodyInterface, sphereId, addr(position))
   jolt.getLinearVelocity(bodyInterface, sphereId, addr(velocity))
 
-  echo "position: ", position
-  echo "velocity: ", velocity
+  # echo "position: ", position
+  # echo "velocity: ", velocity
 
   jolt.update(physicsSystem, 1.0'f32 / 60.0'f32, 1, 1, tmpAlloc, jobSystem)
 

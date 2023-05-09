@@ -14,42 +14,42 @@ proc init(cam: ptr Camera; fovDeg: float32; viewport: Rectangle; fNear,
   cam.fFar = fFar
   cam.viewport = viewport
 
-# proc calcFrustumPointsRange(cam: ptr Camera; frustum: ptr Frustum; fNear,
-#     fFar: float32) {.cdecl.} =
-#   let
-#     fov = toRad(cam.fov)
-#     w = cam.viewport.xMax - cam.viewport.xMin
-#     h = cam.viewport.yMax - cam.viewport.yMin
-#     aspect = w / h
+proc calcFrustumPointsRange(cam: ptr Camera; fNear,
+    fFar: float32): array[8, Vec3] {.cdecl.} =
+  let
+    fov = toRadians(cam.fov)
+    w = cam.viewport.xMax - cam.viewport.xMin
+    h = cam.viewport.yMax - cam.viewport.yMin
+    aspect = w / h
 
-#     xAxis = cam.right
-#     yAxis = cam.up
-#     zAxis = cam.forward
-#     pos = cam.pos
+    xAxis = cam.right
+    yAxis = cam.up
+    zAxis = cam.forward
+    pos = cam.pos
 
-#     nearPlaneH = tan(fov * 0.5'f32) * fNear
-#     nearPlaneW = nearPlaneH * aspect
+    nearPlaneH = tan(fov * 0.5'f32) * fNear
+    nearPlaneW = nearPlaneH * aspect
 
-#     farPlaneH = tan(fov * 0.5'f32) * fFar
-#     farPlaneW = farPlaneH * aspect
+    farPlaneH = tan(fov * 0.5'f32) * fFar
+    farPlaneW = farPlaneH * aspect
 
-#     centerNear = (zAxis * fNear) + pos
-#     centerFar = (zAxis * fFar) + pos
+    centerNear = (zAxis * fNear) + pos
+    centerFar = (zAxis * fFar) + pos
 
-#     xNearScaled = xAxis * nearPlaneW
-#     xFarScaled = xAxis * farPlaneW
-#     yNearScaled = yAxis * nearPlaneH
-#     yFarScaled = yAxis * farPlaneH
+    xNearScaled = xAxis * nearPlaneW
+    xFarScaled = xAxis * farPlaneW
+    yNearScaled = yAxis * nearPlaneH
+    yFarScaled = yAxis * farPlaneH
 
-#   frustum[0] = vec4(centerNear - (xNearScaled + yNearScaled), 0.0'f32)
-#   frustum[1] = vec4(centerNear + (xNearScaled - yNearScaled), 0.0'f32)
-#   frustum[2] = vec4(centerNear + (xNearScaled + yNearScaled), 0.0'f32)
-#   frustum[3] = vec4(centerNear - (xNearScaled - yNearScaled), 0.0'f32)
+  result[0] = centerNear - (xNearScaled + yNearScaled)
+  result[1] = centerNear + (xNearScaled - yNearScaled)
+  result[2] = centerNear + (xNearScaled + yNearScaled)
+  result[3] = centerNear - (xNearScaled - yNearScaled)
 
-#   frustum[4] = vec4(centerFar - (xFarScaled + yFarScaled), 0.0'f32)
-#   frustum[5] = vec4(centerFar - (xFarScaled - yFarScaled), 0.0'f32)
-#   frustum[6] = vec4(centerFar + (xFarScaled + yFarScaled), 0.0'f32)
-#   frustum[7] = vec4(centerFar + (xFarScaled - yFarScaled), 0.0'f32)
+  result[4] = centerFar - (xFarScaled + yFarScaled)
+  result[5] = centerFar - (xFarScaled - yFarScaled)
+  result[6] = centerFar + (xFarScaled + yFarScaled)
+  result[7] = centerFar + (xFarScaled - yFarScaled)
 
 proc perspective(cam: ptr Camera; proj: ptr Mat4) {.cdecl.} =
   assert(proj != nil)
@@ -136,7 +136,7 @@ proc strafeFps(fps: ptr FpsCamera; strafe: float32) {.cdecl.} =
 cameraApi = CameraApi(
   perspective: perspective,
   view: view,
-  # calcFrustumPointsRange: calcFrustumPointsRange,
+  calcFrustumPointsRange: calcFrustumPointsRange,
   initFps: initFps,
   lookAtFps: lookAtFps,
   pitchFps: pitchFps,

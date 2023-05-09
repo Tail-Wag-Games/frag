@@ -25,6 +25,7 @@ type
 
   TempAllocator* = object
   JobSystemThreadPool* = object
+  JobSystemFibers* = object
   BroadPhaseLayerInterface* = object
   ObjectVsBroadPhaseLayerFilter* = object
   ObjectLayerPairFilter* = object

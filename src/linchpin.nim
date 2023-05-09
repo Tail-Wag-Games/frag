@@ -1,6 +1,6 @@
 import std/cpuinfo,
        sokol/gfx as sgfx, sokol/app as sapp, sokol/time as stime,
-       api, asset, fuse, gfx, imgui, job, plugin, vfs
+       api, asset, fuse, gfx as fgfx, imgui, job, plugin, vfs
 
 type
   CoreContext = object
@@ -64,7 +64,7 @@ proc init*(cfg: var Config) =
 
   asset.init()
 
-  gfx.init()
+  fgfx.init()
 
   plugin.init(cfg.pluginPath)
 
@@ -89,11 +89,11 @@ proc frame*() =
   asset.update()
   plugin.update()
 
-  gfx.executeCommandBuffers()
+  fgfx.executeCommandBuffers()
 
   let imguiApi = cast[ptr ImguiApi](pluginApi.getApiByName("imgui", 0))
-  if imguiApi != nil:
-    imguiApi.render()
+  # if imguiApi != nil:
+  #   imguiApi.render()
 
   sgfx.commit()
 
@@ -101,7 +101,7 @@ proc frame*() =
 
 proc shutdown*() =
   plugin.shutdown()
-  gfx.shutdown()
+  fgfx.shutdown()
   asset.shutdown()
   job.destroyContext(ctx.jobCtx)
   vfs.shutdown()
