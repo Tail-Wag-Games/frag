@@ -271,6 +271,21 @@ task linkJolt, "link jolt physics library":
   C:\\Users\\Zach\\dev\\frag\\thirdparty\\Jolt\\TriangleSplitter\\TriangleSplitterMorton.o
   """.unindent().replace("\n", " ")
 
+task compileOzz, "compile ozz animation source":
+  exec "cl /std:c++17 /Zi /EHsc /c /I.\\thirdparty\\ozz-animation\\include /Fo.\\thirdparty\\ozz-animation\\.build\\src_fused\\ozz_base.o .\\thirdparty\\ozz-animation\\.build\\src_fused\\ozz_base.cc"
+  exec "cl /std:c++17 /Zi /EHsc /c /I.\\thirdparty\\ozz-animation\\include /Fo.\\thirdparty\\ozz-animation\\.build\\src_fused\\ozz_animation.o .\\thirdparty\\ozz-animation\\.build\\src_fused\\ozz_animation.cc"
+  exec "cl /std:c++17 /Zi /EHsc /c /I.\\thirdparty\\ozz-animation\\include /I.\\thirdparty\\ozz-animation\\samples\\framework /Fo.\\thirdparty\\ozz-animation\\.build\\src_fused\\mesh.o .\\thirdparty\\ozz-animation\\samples\\framework\\mesh.cc"
+  exec "cl /std:c++17 /Zi /EHsc /c /I.\\thirdparty\\sokol-nim\\src\\sokol\\c /I.\\thirdparty\\ozz-animation\\include /I.\\thirdparty\\ozz-animation\\samples /I.\\thirdparty\\ozz-util /Fo.\\thirdparty\\ozz-util\\ozz_util.o .\\thirdparty\\ozz-util\\ozz_util.cc"
+
+task linkOzz, "link ozz animation library":
+  exec """
+  lib /out:.\\thirdparty\\ozz.lib
+  C:\\Users\\Zach\\dev\\frag\\thirdparty\\ozz-animation\\.build\\src_fused\\ozz_base.o
+  C:\\Users\\Zach\\dev\\frag\\thirdparty\\ozz-animation\\.build\\src_fused\\ozz_animation.o
+  C:\\Users\\Zach\\dev\\frag\\thirdparty\\ozz-animation\\.build\\src_fused\\mesh.o
+  C:\\Users\\Zach\\dev\\frag\\thirdparty\\ozz-util\\ozz_util.o
+  """.unindent().replace("\n", " ")
+
 task build, "build frag executable":
   exec "cl /c /I.\\thirdparty\\cr /Fo.\\thirdparty\\cr.o .\\thirdparty\\cr.cpp"
   exec "lib /out:.\\thirdparty\\cr.lib C:\\Users\\Zach\\dev\\frag\\thirdparty\\cr.o"
@@ -325,6 +340,7 @@ task compileShaders, "compile shaders":
   exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=terrainRender -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\terrain_render.frag"
   exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=offscreen -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\offscreen.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\viewer.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\viewer.frag"
   exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=nuklear -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\nuklear.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\nuklear.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\nuklear.frag"
+  exec "C:\\Users\\Zach\\dev\\frag\\thirdparty\\glslcc\\.build\\src\\Debug\\glslcc.exe -r -l hlsl --cvar=skinnedMesh -o C:\\Users\\Zach\\dev\\frag\\src\\shaders\\skinned_mesh.nim --vert=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\skinned_mesh.vert --frag=C:\\Users\\Zach\\dev\\frag\\src\\shaders\\skinned_mesh.frag"
 
 task buildImguiPlugin, "build imgui plugin":
   exec "nim c --debugger:native --threads:on --app:lib --out:imgui.dll .\\src\\imgui_plugin.nim"
@@ -337,6 +353,9 @@ task build3dPlugin, "build 3d plugin":
 
 task buildTerrainPlugin, "build terrain plugin":
   exec "nim c --debugger:native --threads:on --app:lib --out:terrain.dll .\\src\\terrain_plugin.nim"
+
+task buildAnimationPlugin, "build animation plugin":
+  exec "nim c --debugger:native --threads:on --app:lib --out:anim.dll .\\src\\animation_plugin.nim"
 
 task buildPlugins, "build plugins":
   exec "nim build3dPlugin"

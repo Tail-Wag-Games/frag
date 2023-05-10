@@ -1957,8 +1957,6 @@ proc initCommandBuffers() =
     ctx.cmdBuffersRender[i].index = i
 
 proc init*() =
-  echo "setting up sokol graphics"
-  
   sgfx.setup(Desc(context: sglue.context()))
 
   initLock(ctx.stageLock)

@@ -66,7 +66,6 @@ proc resolvePath(path: cstring; flags: VfsFlag): string =
           break outer
     
       result = normalizePath(sPath, DirSep)
-      echo result
       assert(fileExists(result))
 
 proc read(path: cstring; flags: VfsFlag): ptr MemBlock {.cdecl.} =

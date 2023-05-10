@@ -35,3 +35,6 @@
 [submodule "thirdparty/flecs"]
 	path = thirdparty/flecs
 	url = git@github.com:Tail-Wag-Games/flecs.git
+[submodule "thirdparty/ozz-animation"]
+	path = thirdparty/ozz-animation
+	url = git@github.com:guillaumeblanc/ozz-animation.git
